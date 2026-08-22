@@ -8,37 +8,43 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 
 def evaluate_latest_model():
-    print("--- NETGUARD AI: MODEL EVALUATION ---")
+    print("--- NETGUARD AI: MODEL EVALUATION (MULTI-LEVEL THRESHOLD) ---")
     
-    # 1. Automatically find the latest .pkl file
     model_files = glob.glob("xgboost_netguard_v2_*.pkl")
     if not model_files:
-        print("[ERROR] No model (.pkl) files found in the current directory.")
+        print("[ERROR] No model found.")
         return
     
     latest_model = max(model_files, key=os.path.getctime)
     print(f"[INFO] Evaluating latest model: {latest_model}")
     model = joblib.load(latest_model)
     
-    # 2. Load the dataset
-    csv_path = '../data/master_train.csv'
-    if not os.path.exists(csv_path):
-        print(f"[ERROR] Data file not found at {csv_path}")
-        return
-
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv('../data/master_train.csv')
     feature_cols = ['location', 'severity_type', 'num_events', 'num_resources', 'total_log_volume']
     
     X = df[feature_cols]
     y = df['fault_severity']
 
-    # 3. Create the test split
+    # 100% Leakage-Free Split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # 4. Predict
-    y_pred = model.predict(X_test)
+    # --- PRO-LEVEL HACK: MULTI-LEVEL THRESHOLDS ---
+    print("[INFO] Applying Logic: 30% for Critical, 50% strict for Warning...")
+    y_proba = model.predict_proba(X_test)
     
-    # 5. Metrics
+    CLASS_2_THRESHOLD = 0.30 
+    CLASS_1_THRESHOLD = 0.50
+    
+    y_pred = []
+    for probs in y_proba:
+        if probs[2] >= CLASS_2_THRESHOLD:
+            y_pred.append(2)
+        elif probs[1] >= CLASS_1_THRESHOLD:
+            y_pred.append(1)
+        else:
+            y_pred.append(0)
+    # ---------------------------------------------
+    
     accuracy = accuracy_score(y_test, y_pred)
     conf_matrix = confusion_matrix(y_test, y_pred)
     class_report = classification_report(y_test, y_pred, zero_division=0)
@@ -47,18 +53,14 @@ def evaluate_latest_model():
     print("Detailed Classification Report:")
     print(class_report)
     
-    # 6. Plot Confusion Matrix
     plt.figure(figsize=(6, 5))
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False)
-    plt.title(f'XGBoost Confusion Matrix (Acc: {accuracy*100:.2f}%)')
+    plt.title(f'XGBoost (Thresholds: C2=0.3, C1=0.5) - Acc: {accuracy*100:.2f}%')
     plt.xlabel('Predicted Severity')
     plt.ylabel('Actual Severity')
     plt.tight_layout()
-    
-    plot_name = 'confusion_matrix_plot.png'
-    plt.savefig(plot_name)
-    print(f"\n[INFO] Saved confusion matrix visualization as '{plot_name}'")
+    plt.savefig('confusion_matrix_plot.png')
+    print("\n[INFO] Saved visualization as 'confusion_matrix_plot.png'")
 
 if __name__ == '__main__':
     evaluate_latest_model()
-    

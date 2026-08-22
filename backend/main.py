@@ -140,10 +140,21 @@ def _generate_with_gemini_fallback(prompt: str):
 
 
 def _present_window(data: NetworkData):
-    """Current fault state, straight from the XGBoost classifier."""
     df = pd.DataFrame([data.dict()])
-    severity = int(model.predict(df)[0])
+    
+    # Get raw probabilities
     probs = model.predict_proba(df).tolist()[0]
+    
+    # MULTI-LEVEL THRESHOLDS
+    CLASS_2_THRESHOLD = 0.30
+    CLASS_1_THRESHOLD = 0.50
+    
+    if probs[2] >= CLASS_2_THRESHOLD:
+        severity = 2
+    elif probs[1] >= CLASS_1_THRESHOLD:
+        severity = 1
+    else:
+        severity = 0
 
     # risk = probability the node sits in ANY fault class (1 or 2)
     risk = round(sum(probs[1:]) * 100, 2)
@@ -282,13 +293,22 @@ def predict_severity(data: NetworkData):
         return {"error":"model not loaded"}
         
     df = pd.DataFrame([data.dict()])
+    prob = model.predict_proba(df).tolist()[0]
     
-    prediction= model.predict(df)
-    prob = model.predict_proba(df).tolist()
+    # MULTI-LEVEL THRESHOLDS
+    CLASS_2_THRESHOLD = 0.30
+    CLASS_1_THRESHOLD = 0.50
+    
+    if prob[2] >= CLASS_2_THRESHOLD:
+        final_severity = 2
+    elif prob[1] >= CLASS_1_THRESHOLD:
+        final_severity = 1
+    else:
+        final_severity = 0
     
     return {
-        "fault_severity": int(prediction[0]),
-        "confidence": round(max(prob[0]) * 100, 2)
+        "fault_severity": final_severity,
+        "confidence": round(max(prob) * 100, 2)
     }
 
 
