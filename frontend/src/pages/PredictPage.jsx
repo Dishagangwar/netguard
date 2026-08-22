@@ -77,6 +77,7 @@ const PredictPage = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false)
   const [loadingPhase, setLoadingPhase] = useState('Model is predicting...')
   const [progress, setProgress] = useState(0)
+  const [activeRole, setActiveRole] = useState('L1 Engineer')
   const [error, setError] = useState(null)
 
   // GenAI copilot, only ever engaged when the model actually flags a fault
@@ -94,7 +95,7 @@ const PredictPage = ({ onNavigate }) => {
    * Hand the flagged node to Gemini for a root cause read, the commands that
    * mend it now, and the changes that stop it recurring.
    */
-  const askCopilot = async (timeline) => {
+  const askCopilot = async (timeline, role = activeRole) => {
     const byPhase = Object.fromEntries(timeline.windows.map((w) => [w.phase, w]))
 
     setCopilotLoading(true)
@@ -104,6 +105,7 @@ const PredictPage = ({ onNavigate }) => {
     try {
       const res = await axios.post(`${API}/copilot/remediation`, {
         location: timeline.target_node,
+        role: role,
         severity: byPhase.present?.severity ?? 0,
         severity_label: byPhase.present?.severity_label ?? 'Unknown',
         past_risk: byPhase.past?.risk ?? 0,
@@ -129,6 +131,13 @@ const PredictPage = ({ onNavigate }) => {
     setCopilotLoading(false)
   }
 
+  const handleRoleChange = (newRole) => {
+    setActiveRole(newRole)
+    if (result && result.fault_count > 0) {
+      askCopilot(result, newRole)
+    }
+  }
+
   const runPrediction = async () => {
     setLoading(true)
     setError(null)
@@ -139,8 +148,8 @@ const PredictPage = ({ onNavigate }) => {
     setLoadingPhase('Model is predicting...')
 
     const node = Number(form.location)
-    if (!Number.isInteger(node) || node < 1) {
-      setError('Target Node ID must be a whole number of 1 or more.')
+    if (!Number.isInteger(node) || node < 1 || node > 1126) {
+      setError('Target Node ID must be a valid node number between 1 and 1126.')
       setLoading(false)
       return
     }
@@ -272,6 +281,7 @@ const PredictPage = ({ onNavigate }) => {
                     id="node-id"
                     type="number"
                     min={1}
+                    max={1126}
                     value={form.location}
                     onChange={(e) => set('location')(e.target.value)}
                     className="w-full rounded-md border border-zinc-600 bg-dark p-3 font-mono text-lg font-bold text-primary outline-none transition focus:border-primary"
@@ -444,11 +454,13 @@ const PredictPage = ({ onNavigate }) => {
 
             {result && !loading && (
               <AiCopilotPanel
-                key={`copilot-${runId}`}
+                key={`copilot-${runId}-${activeRole}`}
                 data={copilot}
                 loading={copilotLoading}
                 error={copilotError}
                 node={result.target_node}
+                activeRole={activeRole}
+                onRoleChange={handleRoleChange}
               />
             )}
 
