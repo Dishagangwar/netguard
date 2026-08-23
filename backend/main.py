@@ -146,7 +146,7 @@ def _present_window(data: NetworkData):
     probs = model.predict_proba(df).tolist()[0]
     
     # MULTI-LEVEL THRESHOLDS
-    CLASS_2_THRESHOLD = 0.30
+    CLASS_2_THRESHOLD = 0.47
     CLASS_1_THRESHOLD = 0.50
     
     if probs[2] >= CLASS_2_THRESHOLD:
@@ -296,7 +296,7 @@ def predict_severity(data: NetworkData):
     prob = model.predict_proba(df).tolist()[0]
     
     # MULTI-LEVEL THRESHOLDS
-    CLASS_2_THRESHOLD = 0.30
+    CLASS_2_THRESHOLD = 0.47
     CLASS_1_THRESHOLD = 0.50
     
     if prob[2] >= CLASS_2_THRESHOLD:

@@ -32,7 +32,7 @@ def evaluate_latest_model():
     print("[INFO] Applying Logic: 30% for Critical, 50% strict for Warning...")
     y_proba = model.predict_proba(X_test)
     
-    CLASS_2_THRESHOLD = 0.30 
+    CLASS_2_THRESHOLD = 0.47
     CLASS_1_THRESHOLD = 0.50
     
     y_pred = []
