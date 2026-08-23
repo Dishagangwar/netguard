@@ -1,217 +1,640 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+  Activity,
+  Zap,
+  TrendingUp,
+  History,
+  Radio,
+  Gauge,
+  Waves,
+  BarChart3,
+  ShieldAlert,
+  ArrowRight,
+} from 'lucide-react'
 
 const GRID = [100, 75, 50, 25, 0]
 
-/**
- * Colour rule, kept in one place so the bars, the labels and the legend can
- * never disagree with each other:
- *   red   -> this window carries a fault (risk >= threshold)
- *   green -> this window is clear
- *   slate -> no data for this window, which is NOT the same as "clear"
- */
 const styleFor = (window) => {
   if (!window.has_data) {
     return {
+      color: '#71717a',
+      bgGrad: 'from-zinc-600/30 to-zinc-800/10',
       bar: 'bg-zinc-600',
-      glow: '',
-      text: 'text-zinc-400',
+      glow: 'shadow-[0_0_20px_rgba(113,113,122,0.3)]',
       border: 'border-zinc-600',
-      chip: 'bg-zinc-700/40 text-zinc-300 border-zinc-600',
+      text: 'text-zinc-400',
+      chip: 'bg-zinc-800/80 text-zinc-300 border-zinc-600/50',
       label: 'NO DATA',
+      stroke: '#71717a',
+      fill: 'rgba(113, 113, 122, 0.15)',
       Icon: HelpCircle,
     }
   }
   if (window.fault) {
     return {
-      bar: 'bg-danger',
-      glow: 'shadow-[0_0_25px_rgba(239,68,68,0.55)]',
-      text: 'text-danger',
-      border: 'border-danger',
-      chip: 'bg-danger/15 text-danger border-danger/40',
-      label: 'FAULT',
+      color: '#ef4444',
+      bgGrad: 'from-rose-500/30 via-red-500/20 to-red-950/40',
+      bar: 'bg-gradient-to-t from-rose-600 to-red-500',
+      glow: 'shadow-[0_0_30px_rgba(239,68,68,0.65)]',
+      border: 'border-red-500/60',
+      text: 'text-red-400',
+      chip: 'bg-red-500/15 text-red-400 border-red-500/40 shadow-[0_0_10px_rgba(239,68,68,0.2)]',
+      label: 'CRITICAL FAULT',
+      stroke: '#ef4444',
+      fill: 'rgba(239, 68, 68, 0.25)',
       Icon: AlertTriangle,
     }
   }
   return {
-    bar: 'bg-emerald-500',
-    glow: 'shadow-[0_0_25px_rgba(16,185,129,0.45)]',
-    text: 'text-emerald-500',
-    border: 'border-emerald-500',
-    chip: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/40',
-    label: 'CLEAR',
+    color: '#10b981',
+    bgGrad: 'from-emerald-500/30 via-teal-500/20 to-emerald-950/40',
+    bar: 'bg-gradient-to-t from-emerald-600 to-teal-400',
+    glow: 'shadow-[0_0_30px_rgba(16,185,129,0.55)]',
+    border: 'border-emerald-500/60',
+    text: 'text-emerald-400',
+    chip: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]',
+    label: 'OPTIMAL / CLEAR',
+    stroke: '#10b981',
+    fill: 'rgba(16, 185, 129, 0.25)',
     Icon: CheckCircle2,
   }
 }
 
+const PHASE_ICONS = {
+  past: History,
+  present: Zap,
+  future: TrendingUp,
+}
+
 const FaultTimelineChart = ({ result }) => {
   const [grown, setGrown] = useState(false)
+  const [viewMode, setViewMode] = useState('spline') // 'spline' | 'gauge' | 'capsule'
+  const [hoveredIndex, setHoveredIndex] = useState(null)
 
-  // let the bars start flat, then grow, so the reading lands as a motion cue.
-  // the parent remounts this component per run, so there is nothing to reset.
   useEffect(() => {
-    const t = setTimeout(() => setGrown(true), 60)
+    const t = setTimeout(() => setGrown(true), 100)
     return () => clearTimeout(t)
   }, [])
 
   const { windows, threshold, verdict, fault_count: faultCount, target_node: node } = result
   const anyFault = faultCount > 0
 
+  // SVG Coordinates for 3-Point Cyber Spline
+  // Box: 600 width x 220 height
+  const points = windows.map((w, i) => {
+    const x = 100 + i * 200 // 100, 300, 500
+    const risk = grown ? Math.max(0, Math.min(100, w.risk)) : 0
+    const y = 190 - (risk / 100) * 160 // y from 190 (0%) to 30 (100%)
+    return { x, y, risk, window: w }
+  })
+
+  // Smooth Bezier Curve Path generator
+  const p0 = points[0] || { x: 100, y: 190 }
+  const p1 = points[1] || { x: 300, y: 190 }
+  const p2 = points[2] || { x: 500, y: 190 }
+
+  const splinePath = `M ${p0.x} ${p0.y} C ${p0.x + 80} ${p0.y}, ${p1.x - 80} ${p1.y}, ${p1.x} ${p1.y} C ${p1.x + 80} ${p1.y}, ${p2.x - 80} ${p2.y}, ${p2.x} ${p2.y}`
+  const areaPath = `${splinePath} L ${p2.x} 210 L ${p0.x} 210 Z`
+  const thresholdY = 190 - (threshold / 100) * 160
+
   return (
     <div className="space-y-6">
-      {/* headline verdict */}
+      {/* 1. Futuristic Cyber HUD Verdict Card */}
       <div
-        className={`rounded-xl border p-5 flex items-start gap-4 ${
-          anyFault ? 'border-danger/50 bg-danger/10' : 'border-emerald-500/50 bg-emerald-500/10'
+        className={`relative overflow-hidden rounded-2xl border p-6 backdrop-blur-xl transition-all duration-500 ${
+          anyFault
+            ? 'border-red-500/40 bg-gradient-to-r from-red-950/40 via-panel to-panel shadow-[0_0_40px_rgba(239,68,68,0.18)]'
+            : 'border-emerald-500/40 bg-gradient-to-r from-emerald-950/40 via-panel to-panel shadow-[0_0_40px_rgba(16,185,129,0.18)]'
         }`}
       >
         <div
-          className={`rounded-full p-2 mt-0.5 ${
-            anyFault ? 'bg-danger/20 animate-pulse-ring' : 'bg-emerald-500/20'
+          className={`absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl opacity-20 pointer-events-none ${
+            anyFault ? 'bg-red-500' : 'bg-emerald-500'
           }`}
-        >
-          {anyFault ? (
-            <AlertTriangle className="w-6 h-6 text-danger" />
-          ) : (
-            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-          )}
-        </div>
-        <div>
-          <p className={`font-bold text-lg ${anyFault ? 'text-danger' : 'text-emerald-500'}`}>
-            {anyFault
-              ? `${faultCount} of 3 windows flagged for node ${node}`
-              : `Node ${node} is clear`}
-          </p>
-          <p className="text-sm text-zinc-300 mt-1">{verdict}</p>
-        </div>
-      </div>
+        />
 
-      {/* the chart */}
-      <div className="bg-panel border border-zinc-700 rounded-xl p-6 shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
-          <div>
-            <h3 className="font-bold text-zinc-200 uppercase tracking-wider text-sm">
-              Fault risk across time
-            </h3>
-            <p className="text-xs text-zinc-500 mt-1">
-              Node {node} &middot; bar height is fault risk, 0&ndash;100%
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs">
-            <span className="flex items-center gap-2 text-zinc-400">
-              <span className="w-3 h-3 rounded-sm bg-danger" /> Fault
-            </span>
-            <span className="flex items-center gap-2 text-zinc-400">
-              <span className="w-3 h-3 rounded-sm bg-emerald-500" /> Clear
-            </span>
-            <span className="flex items-center gap-2 text-zinc-400">
-              <span className="w-3 h-3 rounded-sm bg-zinc-600" /> No data
-            </span>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          {/* y axis */}
-          <div className="relative h-64 w-10 shrink-0 text-[10px] text-zinc-500 font-mono">
-            {GRID.map((tick) => (
-              <span
-                key={tick}
-                className="absolute right-0 -translate-y-1/2"
-                style={{ top: `${100 - tick}%` }}
-              >
-                {tick}%
-              </span>
-            ))}
-          </div>
-
-          {/* plot area */}
-          <div className="relative h-64 flex-1">
-            {GRID.map((tick) => (
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div className="relative mt-1">
               <div
-                key={tick}
-                className="absolute left-0 right-0 border-t border-zinc-700/60"
-                style={{ top: `${100 - tick}%` }}
-              />
-            ))}
-
-            {/* decision threshold */}
-            <div
-              className="absolute left-0 right-0 border-t-2 border-dashed border-warning/70"
-              style={{ top: `${100 - threshold}%` }}
-            >
-              <span className="absolute right-0 -top-5 text-[10px] font-bold text-warning bg-panel px-2 rounded">
-                FAULT THRESHOLD {threshold}%
+                className={`flex h-12 w-12 items-center justify-center rounded-xl border ${
+                  anyFault
+                    ? 'border-red-500/50 bg-red-500/20 text-red-400'
+                    : 'border-emerald-500/50 bg-emerald-500/20 text-emerald-400'
+                }`}
+              >
+                {anyFault ? (
+                  <ShieldAlert className="h-6 w-6 animate-pulse" />
+                ) : (
+                  <CheckCircle2 className="h-6 w-6" />
+                )}
+              </div>
+              <span
+                className={`absolute -right-1 -top-1 flex h-3 w-3 ${
+                  anyFault ? 'flex' : 'hidden'
+                }`}
+              >
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
             </div>
 
-            <div className="absolute inset-0 flex items-end justify-around gap-4 sm:gap-10 px-2 sm:px-8">
-              {windows.map((w) => {
-                const s = styleFor(w)
-                return (
-                  <div
-                    key={w.phase}
-                    className="group relative flex h-full w-full max-w-[110px] flex-col justify-end items-center"
-                  >
-                    <span className={`mb-2 font-mono text-sm font-bold ${s.text}`}>
-                      {w.risk}%
-                    </span>
-                    <div
-                      className={`w-full rounded-t-md transition-all duration-1000 ease-out ${s.bar} ${s.glow} ${
-                        w.fault ? 'animate-pulse' : ''
-                      }`}
-                      style={{ height: grown ? `${Math.max(w.risk, 1.5)}%` : '0%' }}
-                      role="img"
-                      aria-label={`${w.title}: ${w.risk} percent fault risk, ${s.label}`}
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* x axis labels */}
-        <div className="flex justify-around gap-4 sm:gap-10 px-2 sm:px-8 ml-[52px] mt-3">
-          {windows.map((w) => {
-            const s = styleFor(w)
-            return (
-              <div key={w.phase} className="w-full max-w-[110px] text-center">
-                <p className="font-bold text-zinc-200 text-sm">{w.title}</p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wide">
-                  {w.subtitle}
-                </p>
-                <span
-                  className={`mt-2 inline-block rounded border px-2 py-0.5 text-[10px] font-bold ${s.chip}`}
-                >
-                  {s.label}
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Node Telemetry Verdict
+                </span>
+                <span className="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 font-mono text-[11px] text-primary">
+                  ID: #{node}
                 </span>
               </div>
-            )
-          })}
+              <h2
+                className={`mt-1 text-xl font-extrabold tracking-tight sm:text-2xl ${
+                  anyFault ? 'text-red-400' : 'text-emerald-400'
+                }`}
+              >
+                {anyFault
+                  ? `Active Outage Alert: ${faultCount} of 3 Windows Flagged`
+                  : `All Systems Operational: Node ${node} is Clear`}
+              </h2>
+              <p className="mt-1.5 text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-2xl font-sans">
+                {verdict}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Risk Indicator Pill */}
+          <div className="flex shrink-0 items-center gap-3 self-start md:self-auto rounded-xl border border-zinc-700/80 bg-zinc-900/80 px-4 py-3">
+            <div className="text-right">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">
+                Threat Status
+              </p>
+              <p
+                className={`font-mono text-sm font-bold ${
+                  anyFault ? 'text-red-400' : 'text-emerald-400'
+                }`}
+              >
+                {anyFault ? 'ELEVATED RISK' : 'HEALTHY'}
+              </p>
+            </div>
+            <div
+              className={`h-9 w-1.5 rounded-full ${
+                anyFault ? 'bg-red-500 shadow-[0_0_12px_#ef4444]' : 'bg-emerald-500 shadow-[0_0_12px_#10b981]'
+              }`}
+            />
+          </div>
         </div>
       </div>
 
-      {/* per window explanation */}
+      {/* 2. Main Futuristic Telemetry Canvas */}
+      <div className="relative rounded-2xl border border-zinc-700/80 bg-gradient-to-b from-[#13141a] to-[#0d0e12] p-6 shadow-2xl backdrop-blur">
+        {/* Header with View Mode Switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-primary animate-pulse" />
+              <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-200">
+                Predictive Risk Matrix (3-Horizon Engine)
+              </h3>
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-400 font-sans">
+              Node #{node} &middot; Real-time AI confidence score trajectory
+            </p>
+          </div>
+
+          {/* Visual Mode Selector Tabs */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-zinc-700/70 bg-zinc-900/90 p-1 font-mono text-xs">
+            <button
+              onClick={() => setViewMode('spline')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all ${
+                viewMode === 'spline'
+                  ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_12px_rgba(253,230,138,0.25)]'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <Waves className="h-3.5 w-3.5" />
+              <span>Cyber Wave</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('gauge')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all ${
+                viewMode === 'gauge'
+                  ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_12px_rgba(253,230,138,0.25)]'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <Gauge className="h-3.5 w-3.5" />
+              <span>Cyber Gauges</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('capsule')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all ${
+                viewMode === 'capsule'
+                  ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_12px_rgba(253,230,138,0.25)]'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>Neon Pillars</span>
+            </button>
+          </div>
+        </div>
+
+        {/* View Mode 1: Cyber Wave / Spline Curve Chart */}
+        {viewMode === 'spline' && (
+          <div className="pt-6">
+            <div className="relative h-72 w-full overflow-hidden">
+              <svg
+                viewBox="0 0 600 230"
+                className="h-full w-full overflow-visible"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  {/* Linear Gradient for Spline Stroke */}
+                  <linearGradient id="splineStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={styleFor(windows[0] || {}).color} />
+                    <stop offset="50%" stopColor={styleFor(windows[1] || {}).color} />
+                    <stop offset="100%" stopColor={styleFor(windows[2] || {}).color} />
+                  </linearGradient>
+
+                  {/* Gradient for Filled Area */}
+                  <linearGradient id="splineArea" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop
+                      offset="0%"
+                      stopColor={anyFault ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)'}
+                    />
+                    <stop
+                      offset="60%"
+                      stopColor={anyFault ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}
+                    />
+                    <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
+                  </linearGradient>
+
+                  <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                </defs>
+
+                {/* Grid Scan Lines */}
+                {GRID.map((tick) => {
+                  const y = 190 - (tick / 100) * 160
+                  return (
+                    <g key={tick}>
+                      <line
+                        x1="40"
+                        y1={y}
+                        x2="560"
+                        y2={y}
+                        stroke="#27272a"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="32"
+                        y={y + 3}
+                        fill="#71717a"
+                        fontSize="9"
+                        fontFamily="monospace"
+                        textAnchor="end"
+                      >
+                        {tick}%
+                      </text>
+                    </g>
+                  )
+                })}
+
+                {/* 50% Threshold Laser Line */}
+                <g>
+                  <line
+                    x1="40"
+                    y1={thresholdY}
+                    x2="560"
+                    y2={thresholdY}
+                    stroke="#f59e0b"
+                    strokeWidth="1.5"
+                    strokeDasharray="6 4"
+                    opacity="0.85"
+                  />
+                  <rect
+                    x="455"
+                    y={thresholdY - 14}
+                    width="105"
+                    height="16"
+                    rx="3"
+                    fill="#18181b"
+                    stroke="#f59e0b"
+                    strokeWidth="0.8"
+                  />
+                  <text
+                    x="507"
+                    y={thresholdY - 3}
+                    fill="#f59e0b"
+                    fontSize="8.5"
+                    fontWeight="bold"
+                    fontFamily="monospace"
+                    textAnchor="middle"
+                  >
+                    THRESHOLD {threshold}%
+                  </text>
+                </g>
+
+                {/* Filled Spline Area */}
+                <path
+                  d={areaPath}
+                  fill="url(#splineArea)"
+                  className="transition-all duration-1000 ease-out"
+                />
+
+                {/* Glowing Spline Stroke Curve */}
+                <path
+                  d={splinePath}
+                  fill="none"
+                  stroke="url(#splineStroke)"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  filter="url(#neonGlow)"
+                  className="transition-all duration-1000 ease-out"
+                />
+
+                {/* Vertical Phase Drop-Down Laser Lines */}
+                {points.map((p, idx) => {
+                  const s = styleFor(p.window)
+                  return (
+                    <g key={idx}>
+                      <line
+                        x1={p.x}
+                        y1={p.y}
+                        x2={p.x}
+                        y2="210"
+                        stroke={s.color}
+                        strokeWidth="1.2"
+                        strokeDasharray="2 4"
+                        opacity="0.5"
+                      />
+                    </g>
+                  )
+                })}
+
+                {/* Interactive Data Hub Nodes (Points) */}
+                {points.map((p, idx) => {
+                  const s = styleFor(p.window)
+                  const isHovered = hoveredIndex === idx
+
+                  return (
+                    <g
+                      key={idx}
+                      className="cursor-pointer transition-transform duration-300"
+                      onMouseEnter={() => setHoveredIndex(idx)}
+                      onMouseLeave={() => setHoveredIndex(null)}
+                    >
+                      {/* Outer Halo Wave */}
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={isHovered ? '16' : '11'}
+                        fill={s.color}
+                        opacity="0.2"
+                        className="animate-ping"
+                      />
+
+                      {/* Main Node Circle */}
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={isHovered ? '9' : '7'}
+                        fill="#09090b"
+                        stroke={s.color}
+                        strokeWidth="3"
+                        filter="url(#neonGlow)"
+                        className="transition-all duration-300"
+                      />
+
+                      {/* Center Point */}
+                      <circle cx={p.x} cy={p.y} r="2.5" fill={s.color} />
+
+                      {/* Floating Percentage Tag */}
+                      <g transform={`translate(${p.x}, ${p.y - 16})`}>
+                        <rect
+                          x="-28"
+                          y="-16"
+                          width="56"
+                          height="18"
+                          rx="4"
+                          fill="#09090b"
+                          stroke={s.color}
+                          strokeWidth="1"
+                        />
+                        <text
+                          x="0"
+                          y="-3.5"
+                          fill={s.color}
+                          fontSize="10"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                          textAnchor="middle"
+                        >
+                          {p.risk}%
+                        </text>
+                      </g>
+                    </g>
+                  )
+                })}
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* View Mode 2: Cyber Radial Gauges */}
+        {viewMode === 'gauge' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 pb-2">
+            {windows.map((w) => {
+              const s = styleFor(w)
+              const Icon = PHASE_ICONS[w.phase] || Activity
+              const radius = 54
+              const circumference = 2 * Math.PI * radius
+              const offset = grown
+                ? circumference - (Math.max(0, Math.min(100, w.risk)) / 100) * circumference
+                : circumference
+
+              return (
+                <div
+                  key={w.phase}
+                  className="relative flex flex-col items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-5 shadow-inner"
+                >
+                  <div className="relative flex items-center justify-center">
+                    <svg className="h-40 w-40 -rotate-90 transform">
+                      {/* Background Dial Track */}
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r={radius}
+                        stroke="#27272a"
+                        strokeWidth="8"
+                        fill="transparent"
+                      />
+                      {/* Animated Progress Dial */}
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r={radius}
+                        stroke={s.color}
+                        strokeWidth="8"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        className="transition-all duration-1000 ease-out"
+                      />
+                    </svg>
+
+                    {/* Central Value Readout */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <Icon className={`h-4 w-4 ${s.text} mb-1`} />
+                      <span className={`font-mono text-2xl font-black ${s.text}`}>
+                        {w.risk}%
+                      </span>
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+                        Risk
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 font-bold text-sm text-zinc-200">{w.title}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                    {w.subtitle}
+                  </p>
+                  <span className={`mt-2 rounded-full border px-3 py-0.5 text-[10px] font-bold ${s.chip}`}>
+                    {s.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* View Mode 3: Futuristic Neon Pillars (Capsule Matrix) */}
+        {viewMode === 'capsule' && (
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 pt-8 pb-4">
+            {windows.map((w) => {
+              const s = styleFor(w)
+              const heightPercent = grown ? Math.max(w.risk, 6) : 0
+
+              return (
+                <div
+                  key={w.phase}
+                  className="flex flex-col items-center justify-end h-64 relative group"
+                >
+                  <span className={`mb-3 font-mono text-sm font-black ${s.text}`}>
+                    {w.risk}%
+                  </span>
+
+                  {/* Capsule Track */}
+                  <div className="relative h-48 w-14 sm:w-18 rounded-full border border-zinc-700/80 bg-zinc-900/90 p-1 flex flex-col justify-end overflow-hidden shadow-inner">
+                    {/* Interior Segmented Grid Hash Marks */}
+                    <div className="absolute inset-0 flex flex-col justify-between py-3 px-1 pointer-events-none opacity-30">
+                      {[...Array(8)].map((_, i) => (
+                        <div key={i} className="h-0.5 w-full bg-zinc-600 rounded-full" />
+                      ))}
+                    </div>
+
+                    {/* Filled Energy Pillar */}
+                    <div
+                      className={`w-full rounded-full transition-all duration-1000 ease-out ${s.bar} ${s.glow} relative`}
+                      style={{ height: `${heightPercent}%` }}
+                    >
+                      <div className="absolute top-1 inset-x-1 h-2 rounded-full bg-white/40 blur-[1px]" />
+                    </div>
+                  </div>
+
+                  <p className="mt-4 font-bold text-sm text-zinc-200">{w.title}</p>
+                  <span className={`mt-1.5 rounded-full border px-2.5 py-0.5 text-[9px] font-bold ${s.chip}`}>
+                    {s.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Timeline Trajectory Navigator Footer (Common Across Views) */}
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-800/80 pt-4 text-xs">
+          <div className="flex items-center gap-2 text-zinc-400 font-mono text-[11px]">
+            <span className="flex items-center gap-1.5 text-zinc-300">
+              <History className="h-3.5 w-3.5 text-zinc-400" /> Recorded History
+            </span>
+            <ArrowRight className="h-3 w-3 text-zinc-600" />
+            <span className="flex items-center gap-1.5 text-primary">
+              <Zap className="h-3.5 w-3.5 text-primary" /> Live XGBoost
+            </span>
+            <ArrowRight className="h-3 w-3 text-zinc-600" />
+            <span className="flex items-center gap-1.5 text-zinc-300">
+              <TrendingUp className="h-3.5 w-3.5 text-zinc-400" /> Load Horizon
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px] font-mono">
+            <span className="flex items-center gap-1.5 text-zinc-400">
+              <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]" />
+              Fault (&ge;50%)
+            </span>
+            <span className="flex items-center gap-1.5 text-zinc-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+              Clear (&lt;50%)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Per-Window Deep Diagnostics Glass Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         {windows.map((w) => {
           const s = styleFor(w)
-          const Icon = s.Icon
+          const Icon = PHASE_ICONS[w.phase] || Activity
+
           return (
             <div
               key={w.phase}
-              className={`bg-panel border-l-4 ${s.border} border-y border-r border-y-zinc-700 border-r-zinc-700 rounded-lg p-4`}
+              className={`relative overflow-hidden rounded-xl border border-zinc-700/70 bg-gradient-to-b from-[#16171e] to-panel p-5 backdrop-blur shadow-lg transition-all duration-300 hover:border-zinc-500/80 hover:-translate-y-1`}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className={`w-4 h-4 ${s.text}`} />
-                <h4 className="font-bold text-zinc-200 text-sm">{w.title}</h4>
-                <span className={`ml-auto font-mono text-sm font-bold ${s.text}`}>
-                  {w.risk}%
+              <div
+                className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${
+                  w.fault ? 'from-red-600 via-rose-500 to-red-400' : 'from-emerald-600 via-teal-500 to-emerald-400'
+                }`}
+              />
+
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-1.5 rounded-lg border ${s.chip}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-zinc-100 text-sm">{w.title} Phase</h4>
+                    <p className="text-[10px] text-zinc-400 uppercase tracking-wider">
+                      {w.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right font-mono">
+                  <span className={`text-lg font-black ${s.text}`}>{w.risk}%</span>
+                  <p className="text-[9px] uppercase tracking-widest text-zinc-500">Risk</p>
+                </div>
+              </div>
+
+              <p className="text-xs leading-relaxed text-zinc-300 font-sans">{w.detail}</p>
+
+              <div className="mt-4 flex items-center justify-between border-t border-zinc-800/80 pt-3 text-[10px] font-mono text-zinc-500">
+                <span className="truncate max-w-[170px]">Source: {w.source}</span>
+                <span className={`font-bold ${s.text}`}>
+                  {w.fault ? 'TRIGGERED' : 'NOMINAL'}
                 </span>
               </div>
-              <p className="text-xs leading-relaxed text-zinc-400">{w.detail}</p>
-              <p className="mt-3 text-[10px] uppercase tracking-wide text-zinc-600">
-                Source: {w.source}
-              </p>
             </div>
           )
         })}
