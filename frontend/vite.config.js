@@ -8,11 +8,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/predict': {
-        target: 'http://localhost:8000',
+        target: 'http://51.20.142.229',
         changeOrigin: true,
       },
       '/copilot': {
-        target: 'http://localhost:8000',
+        target: 'http://51.20.142.229',
         changeOrigin: true,
       },
     },
