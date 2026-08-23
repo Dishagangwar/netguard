@@ -3,10 +3,8 @@ import glob
 import json
 import joblib
 import pandas as pd
-from typing import Literal
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from fastapi import FastAPI
+from pydantic import BaseModel
 from dotenv import load_dotenv
 import google.generativeai as genai
 # import time  
@@ -27,19 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 model = None
-
-
-# SAFETY NET: if anything anywhere in the app throws an error we didn't
-# specifically plan for, this catches it so the user gets a clean JSON
-# error instead of a raw crash/stack trace.
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    print("UNHANDLED ERROR:", type(exc).__name__, exc)
-    return JSONResponse(
-        status_code=500,
-        content={"error": "internal_error", "detail": str(exc)},
-    )
-
 
 # load latest model 
 try:
@@ -69,24 +54,20 @@ except Exception as e:
 
 
 class NetworkData(BaseModel):
-    # Enforces strict valid ranges from the network mesh training dataset
-    location: int = Field(..., ge=1, le=1126, description="Valid node ID in the mesh (1 - 1126)")
-    severity_type: int = Field(..., ge=0, le=2, description="Severity type (0 - 2)")
-    num_events: int = Field(..., ge=1, le=9, description="Event burst count (1 - 9)")
-    num_resources: int = Field(..., ge=1, le=5, description="Resource types involved (1 - 5)")
-    total_log_volume: int = Field(..., ge=0, le=1650, description="Log volume in MB (0 - 1650)")
+    location: int
+    severity_type: int
+    num_events: int
+    num_resources : int
+    total_log_volume: int
 
 class CopilotRequest(BaseModel):
-    # Literal means role can ONLY be one of these two exact strings.
-    # A typo or unexpected value gets rejected automatically.
-    role: Literal["L1 Engineer", "NOC Manager"]
-    fault_severity: int = Field(..., ge=0, le=2)
+    role: str
+    fault_severity: int
     location: str
 
 class RemediationRequest(BaseModel):
     """Everything the copilot needs to reason about one flagged node."""
     location: int
-    role: str = "L1 Engineer"
     severity: int = 0
     severity_label: str = "Unknown"
     past_risk: float = 0.0
@@ -159,10 +140,21 @@ def _generate_with_gemini_fallback(prompt: str):
 
 
 def _present_window(data: NetworkData):
-    """Current fault state, straight from the XGBoost classifier."""
     df = pd.DataFrame([data.dict()])
-    severity = int(model.predict(df)[0])
+    
+    # Get raw probabilities
     probs = model.predict_proba(df).tolist()[0]
+    
+    # MULTI-LEVEL THRESHOLDS
+    CLASS_2_THRESHOLD = 0.47
+    CLASS_1_THRESHOLD = 0.50
+    
+    if probs[2] >= CLASS_2_THRESHOLD:
+        severity = 2
+    elif probs[1] >= CLASS_1_THRESHOLD:
+        severity = 1
+    else:
+        severity = 0
 
     # risk = probability the node sits in ANY fault class (1 or 2)
     risk = round(sum(probs[1:]) * 100, 2)
@@ -299,20 +291,25 @@ def health_check():
 def predict_severity(data: NetworkData):
     if model is None:
         return {"error":"model not loaded"}
-
-    try:
-        df = pd.DataFrame([data.dict()])
-
-        prediction= model.predict(df)
-        prob = model.predict_proba(df).tolist()
-
-        return {
-            "fault_severity": int(prediction[0]),
-            "confidence": round(max(prob[0]) * 100, 2)
-        }
-    except Exception as e:
-        print("predict error:", type(e).__name__, e)
-        return {"error": "prediction_failed", "detail": str(e)}
+        
+    df = pd.DataFrame([data.dict()])
+    prob = model.predict_proba(df).tolist()[0]
+    
+    # MULTI-LEVEL THRESHOLDS
+    CLASS_2_THRESHOLD = 0.47
+    CLASS_1_THRESHOLD = 0.50
+    
+    if prob[2] >= CLASS_2_THRESHOLD:
+        final_severity = 2
+    elif prob[1] >= CLASS_1_THRESHOLD:
+        final_severity = 1
+    else:
+        final_severity = 0
+    
+    return {
+        "fault_severity": final_severity,
+        "confidence": round(max(prob) * 100, 2)
+    }
 
 
 @app.post("/predict/timeline")
@@ -324,84 +321,39 @@ def predict_timeline(data: NetworkData):
     if model is None:
         return {"error": "model not loaded"}
 
-    try:
-        present = _present_window(data)
-        past = _past_window(data.location)
-        future = _future_window(data, present, past)
+    present = _present_window(data)
+    past = _past_window(data.location)
+    future = _future_window(data, present, past)
 
-        windows = [past, present, future]
-        faults = [w for w in windows if w["fault"]]
+    windows = [past, present, future]
+    faults = [w for w in windows if w["fault"]]
 
-        if not faults:
-            verdict = f"Node {data.location} reads clear across all three windows."
-        else:
-            phases = ", ".join(w["phase"] for w in faults)
-            verdict = (
-                f"Fault indicated in the {phases} "
-                f"window{'s' if len(faults) > 1 else ''} for node {data.location}."
-            )
+    if not faults:
+        verdict = f"Node {data.location} reads clear across all three windows."
+    else:
+        phases = ", ".join(w["phase"] for w in faults)
+        verdict = (
+            f"Fault indicated in the {phases} "
+            f"window{'s' if len(faults) > 1 else ''} for node {data.location}."
+        )
 
-        return {
-            "target_node": data.location,
-            "threshold": FAULT_THRESHOLD,
-            "verdict": verdict,
-            "fault_count": len(faults),
-            "windows": windows,
-            "inputs": data.dict(),
-        }
-    except Exception as e:
-        print("timeline error:", type(e).__name__, e)
-        return {"error": "timeline_failed", "detail": str(e)}
+    return {
+        "target_node": data.location,
+        "threshold": FAULT_THRESHOLD,
+        "verdict": verdict,
+        "fault_count": len(faults),
+        "windows": windows,
+        "inputs": data.dict(),
+    }
 
 
 @app.post("/copilot/remediation")
 def copilot_remediation(req: RemediationRequest):
     """
-    Hands a flagged node to Gemini and tailors the incident response to the
-    selected user role (L1 Network Engineer vs NOC Operations Manager).
+    Hands a flagged node to Gemini and asks for a root cause read, the commands
+    that mend it now, and the changes that stop it recurring.
     """
-    if req.role == "NOC Manager":
-        prompt = f"""
-You are NetGuard AI, the executive incident copilot for a telecom network operations
-centre. You are speaking directly to a NOC Operations Manager and Business Operations Lead.
-
-A network fault has been flagged on node {req.location}.
-
-MACHINE LEARNING VERDICT
-- Classified severity: {req.severity_label} (class {req.severity})
-- Present fault risk (XGBoost): {req.present_risk}%
-- Historical fault risk for this node: {req.past_risk}%
-- Projected future risk: {req.future_risk}%
-- History detail: {req.past_summary or "no recorded history for this node"}
-
-RAW TELEMETRY FOR THIS NODE
-- Alarm severity type: {req.severity_type}
-- Event burst count: {req.num_events}
-- Resource types involved: {req.num_resources}
-- Log volume emitted: {req.total_log_volume} MB
-
-Write the Executive NOC Management Response:
-1. Executive Incident Brief: High-level business summary of the situation and why it matters.
-2. Financial & SLA Impact: Estimated financial loss risk, SLA penalty breach window, and customer subscriber blast radius.
-3. Operational Directives: 3 or 4 step-by-step executive and cross-team actions (e.g. Stakeholder alert, vendor escalation, field crew dispatch authorization, traffic rerouting sign-off).
-4. Long-Term SLA Mitigation: 3 strategic operational changes to protect future SLA contracts.
-5. Executive Clearance: Criteria required before marking the incident closed for business stakeholders.
-
-Respond in pure JSON, exactly this shape and nothing else:
-{{
-  "root_cause": "3 to 4 sentences providing an executive summary of the operational incident and customer blast radius",
-  "impact": "Concrete financial penalty risk, SLA breach exposure, and affected subscriber services",
-  "immediate_actions": [
-    {{"step": "Directive Title", "detail": "Operational explanation and stakeholder impact", "command": "ESCALATION DIRECTIVE"}}
-  ],
-  "prevention": [
-    "strategic operational change to protect future SLA contracts, one sentence each"
-  ],
-  "verification": "executive sign-off and SLA clearance criteria"
-}}
-"""
-    else:
-        prompt = f"""
+    prompt = f"""
 You are NetGuard AI, the incident copilot for a telecom network operations
 centre. You are speaking to an L1 network engineer who has to fix this now.
 
@@ -427,7 +379,7 @@ a telecom node, and must include node {req.location} where a target is needed.
 
 Respond in pure JSON, exactly this shape and nothing else:
 {{
-  "root_cause": "3 to 3 sentences naming the most likely root cause and the evidence in the telemetry that points to it",
+  "root_cause": "3 to 4 sentences naming the most likely root cause and the evidence in the telemetry that points to it",
   "impact": "one sentence on what breaks for subscribers or services if this is left alone",
   "immediate_actions": [
     {{"step": "short imperative title", "detail": "one sentence on what this does and what to look for", "command": "a single runnable bash command"}}
@@ -446,7 +398,6 @@ anything disruptive runs last. Give 3 prevention items.
         data, used_model = _generate_with_gemini_fallback(prompt)
         # normalise, so the UI never has to defend against a missing key
         return {
-            "role": req.role,
             "root_cause": data.get("root_cause", ""),
             "impact": data.get("impact", ""),
             "immediate_actions": data.get("immediate_actions", []) or [],

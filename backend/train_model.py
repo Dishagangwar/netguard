@@ -2,9 +2,8 @@ import pandas as pd
 from xgboost import XGBClassifier
 import joblib
 import time
-
-# YEH LINE MISSING THI TERE CODE MEIN 👇
-from sklearn.utils.class_weight import compute_sample_weight 
+from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_sample_weight
 
 print("starting model training on master dataset...")
 
@@ -16,11 +15,16 @@ y = df['fault_severity']
 
 print("features ->", list(X.columns))
 
+# --- THE LEAKAGE FIX: SPLIT DATA FIRST ---
+print("splitting data into train and test sets to prevent data leakage...")
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42,stratify = y)
+# ----------------------------------------
+
 # --- THE MAGIC FOR RECALL IMPROVEMENT ---
-print("calculating balanced sample weights to fix class imbalance...")
+print("calculating balanced sample weights on TRAINING data only...")
 sample_weights = compute_sample_weight(
     class_weight='balanced',
-    y=y
+    y=y_train 
 )
 # ----------------------------------------
 
@@ -29,13 +33,14 @@ model = XGBClassifier(
     n_estimators=100, 
     max_depth=6, 
     learning_rate=0.1, 
-    random_state=42
+    random_state=42,
+    objective='multi:softprob'
 )
 
 print("training xgb with class weights... wait")
 
-# Pass the calculated weights into the fit function
-model.fit(X, y, sample_weight=sample_weights) 
+# Pass the calculated weights into the fit function alongside the training split
+model.fit(X_train, y_train, sample_weight=sample_weights) 
 
 timestamp = int(time.time())
 model_filename = f"xgboost_netguard_v2_{timestamp}.pkl"
