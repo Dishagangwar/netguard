@@ -8,9 +8,7 @@ import {
   TrendingUp,
   History,
   Radio,
-  Gauge,
   Waves,
-  BarChart3,
   ShieldAlert,
   ArrowRight,
 } from 'lucide-react'
@@ -71,7 +69,6 @@ const PHASE_ICONS = {
 
 const FaultTimelineChart = ({ result }) => {
   const [grown, setGrown] = useState(false)
-  const [viewMode, setViewMode] = useState('spline') // 'spline' | 'gauge' | 'capsule'
   const [hoveredIndex, setHoveredIndex] = useState(null)
 
   useEffect(() => {
@@ -83,7 +80,7 @@ const FaultTimelineChart = ({ result }) => {
   const anyFault = faultCount > 0
 
   // SVG Coordinates for 3-Point Cyber Spline
-  // Box: 600 width x 220 height
+  // Box: 600 width x 230 height
   const points = windows.map((w, i) => {
     const x = 100 + i * 200 // 100, 300, 500
     const risk = grown ? Math.max(0, Math.min(100, w.risk)) : 0
@@ -189,9 +186,9 @@ const FaultTimelineChart = ({ result }) => {
         </div>
       </div>
 
-      {/* 2. Main Futuristic Telemetry Canvas */}
+      {/* 2. Main Cyber Wave Telemetry Canvas */}
       <div className="relative rounded-2xl border border-zinc-700/80 bg-gradient-to-b from-[#13141a] to-[#0d0e12] p-6 shadow-2xl backdrop-blur">
-        {/* Header with View Mode Switcher */}
+        {/* Header Badge */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
           <div>
             <div className="flex items-center gap-2">
@@ -205,364 +202,217 @@ const FaultTimelineChart = ({ result }) => {
             </p>
           </div>
 
-          {/* Visual Mode Selector Tabs */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-zinc-700/70 bg-zinc-900/90 p-1 font-mono text-xs">
-            <button
-              onClick={() => setViewMode('spline')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all ${
-                viewMode === 'spline'
-                  ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_12px_rgba(253,230,138,0.25)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Waves className="h-3.5 w-3.5" />
-              <span>Cyber Wave</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('gauge')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all ${
-                viewMode === 'gauge'
-                  ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_12px_rgba(253,230,138,0.25)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Gauge className="h-3.5 w-3.5" />
-              <span>Cyber Gauges</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('capsule')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all ${
-                viewMode === 'capsule'
-                  ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_12px_rgba(253,230,138,0.25)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              <span>Neon Pillars</span>
-            </button>
+          {/* Dedicated Cyber Wave Badge */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 font-mono text-xs font-bold text-primary shadow-[0_0_12px_rgba(253,230,138,0.2)]">
+            <Waves className="h-3.5 w-3.5 animate-pulse" />
+            <span>CYBER WAVE SPLINE</span>
           </div>
         </div>
 
-        {/* View Mode 1: Cyber Wave / Spline Curve Chart */}
-        {viewMode === 'spline' && (
-          <div className="pt-6">
-            <div className="relative h-72 w-full overflow-hidden">
-              <svg
-                viewBox="0 0 600 230"
-                className="h-full w-full overflow-visible"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  {/* Linear Gradient for Spline Stroke */}
-                  <linearGradient id="splineStroke" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={styleFor(windows[0] || {}).color} />
-                    <stop offset="50%" stopColor={styleFor(windows[1] || {}).color} />
-                    <stop offset="100%" stopColor={styleFor(windows[2] || {}).color} />
-                  </linearGradient>
+        {/* Dedicated Cyber Wave Spline Curve Area */}
+        <div className="pt-6">
+          <div className="relative h-72 w-full overflow-hidden">
+            <svg
+              viewBox="0 0 600 230"
+              className="h-full w-full overflow-visible"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                {/* Linear Gradient for Spline Stroke */}
+                <linearGradient id="splineStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor={styleFor(windows[0] || {}).color} />
+                  <stop offset="50%" stopColor={styleFor(windows[1] || {}).color} />
+                  <stop offset="100%" stopColor={styleFor(windows[2] || {}).color} />
+                </linearGradient>
 
-                  {/* Gradient for Filled Area */}
-                  <linearGradient id="splineArea" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop
-                      offset="0%"
-                      stopColor={anyFault ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)'}
+                {/* Gradient for Filled Area */}
+                <linearGradient id="splineArea" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop
+                    offset="0%"
+                    stopColor={anyFault ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)'}
+                  />
+                  <stop
+                    offset="60%"
+                    stopColor={anyFault ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}
+                  />
+                  <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
+                </linearGradient>
+
+                <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
+              {/* Grid Scan Lines */}
+              {GRID.map((tick) => {
+                const y = 190 - (tick / 100) * 160
+                return (
+                  <g key={tick}>
+                    <line
+                      x1="40"
+                      y1={y}
+                      x2="560"
+                      y2={y}
+                      stroke="#27272a"
+                      strokeDasharray="4 4"
+                      strokeWidth="1"
                     />
-                    <stop
-                      offset="60%"
-                      stopColor={anyFault ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}
+                    <text
+                      x="32"
+                      y={y + 3}
+                      fill="#71717a"
+                      fontSize="9"
+                      fontFamily="monospace"
+                      textAnchor="end"
+                    >
+                      {tick}%
+                    </text>
+                  </g>
+                )
+              })}
+
+              {/* 50% Threshold Laser Line */}
+              <g>
+                <line
+                  x1="40"
+                  y1={thresholdY}
+                  x2="560"
+                  y2={thresholdY}
+                  stroke="#f59e0b"
+                  strokeWidth="1.5"
+                  strokeDasharray="6 4"
+                  opacity="0.85"
+                />
+                <rect
+                  x="455"
+                  y={thresholdY - 14}
+                  width="105"
+                  height="16"
+                  rx="3"
+                  fill="#18181b"
+                  stroke="#f59e0b"
+                  strokeWidth="0.8"
+                />
+                <text
+                  x="507"
+                  y={thresholdY - 3}
+                  fill="#f59e0b"
+                  fontSize="8.5"
+                  fontWeight="bold"
+                  fontFamily="monospace"
+                  textAnchor="middle"
+                >
+                  THRESHOLD {threshold}%
+                </text>
+              </g>
+
+              {/* Filled Spline Area */}
+              <path
+                d={areaPath}
+                fill="url(#splineArea)"
+                className="transition-all duration-1000 ease-out"
+              />
+
+              {/* Glowing Spline Stroke Curve */}
+              <path
+                d={splinePath}
+                fill="none"
+                stroke="url(#splineStroke)"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                filter="url(#neonGlow)"
+                className="transition-all duration-1000 ease-out"
+              />
+
+              {/* Vertical Phase Drop-Down Laser Lines */}
+              {points.map((p, idx) => {
+                const s = styleFor(p.window)
+                return (
+                  <g key={idx}>
+                    <line
+                      x1={p.x}
+                      y1={p.y}
+                      x2={p.x}
+                      y2="210"
+                      stroke={s.color}
+                      strokeWidth="1.2"
+                      strokeDasharray="2 4"
+                      opacity="0.5"
                     />
-                    <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
-                  </linearGradient>
+                  </g>
+                )
+              })}
 
-                  <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="4" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
-                </defs>
+              {/* Interactive Data Hub Nodes (Points) */}
+              {points.map((p, idx) => {
+                const s = styleFor(p.window)
+                const isHovered = hoveredIndex === idx
 
-                {/* Grid Scan Lines */}
-                {GRID.map((tick) => {
-                  const y = 190 - (tick / 100) * 160
-                  return (
-                    <g key={tick}>
-                      <line
-                        x1="40"
-                        y1={y}
-                        x2="560"
-                        y2={y}
-                        stroke="#27272a"
-                        strokeDasharray="4 4"
+                return (
+                  <g
+                    key={idx}
+                    className="cursor-pointer transition-transform duration-300"
+                    onMouseEnter={() => setHoveredIndex(idx)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                  >
+                    {/* Outer Halo Wave */}
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={isHovered ? '16' : '11'}
+                      fill={s.color}
+                      opacity="0.2"
+                      className="animate-ping"
+                    />
+
+                    {/* Main Node Circle */}
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={isHovered ? '9' : '7'}
+                      fill="#09090b"
+                      stroke={s.color}
+                      strokeWidth="3"
+                      filter="url(#neonGlow)"
+                      className="transition-all duration-300"
+                    />
+
+                    {/* Center Point */}
+                    <circle cx={p.x} cy={p.y} r="2.5" fill={s.color} />
+
+                    {/* Floating Percentage Tag */}
+                    <g transform={`translate(${p.x}, ${p.y - 16})`}>
+                      <rect
+                        x="-28"
+                        y="-16"
+                        width="56"
+                        height="18"
+                        rx="4"
+                        fill="#09090b"
+                        stroke={s.color}
                         strokeWidth="1"
                       />
                       <text
-                        x="32"
-                        y={y + 3}
-                        fill="#71717a"
-                        fontSize="9"
+                        x="0"
+                        y="-3.5"
+                        fill={s.color}
+                        fontSize="10"
+                        fontWeight="bold"
                         fontFamily="monospace"
-                        textAnchor="end"
+                        textAnchor="middle"
                       >
-                        {tick}%
+                        {p.risk}%
                       </text>
                     </g>
-                  )
-                })}
-
-                {/* 50% Threshold Laser Line */}
-                <g>
-                  <line
-                    x1="40"
-                    y1={thresholdY}
-                    x2="560"
-                    y2={thresholdY}
-                    stroke="#f59e0b"
-                    strokeWidth="1.5"
-                    strokeDasharray="6 4"
-                    opacity="0.85"
-                  />
-                  <rect
-                    x="455"
-                    y={thresholdY - 14}
-                    width="105"
-                    height="16"
-                    rx="3"
-                    fill="#18181b"
-                    stroke="#f59e0b"
-                    strokeWidth="0.8"
-                  />
-                  <text
-                    x="507"
-                    y={thresholdY - 3}
-                    fill="#f59e0b"
-                    fontSize="8.5"
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                    textAnchor="middle"
-                  >
-                    THRESHOLD {threshold}%
-                  </text>
-                </g>
-
-                {/* Filled Spline Area */}
-                <path
-                  d={areaPath}
-                  fill="url(#splineArea)"
-                  className="transition-all duration-1000 ease-out"
-                />
-
-                {/* Glowing Spline Stroke Curve */}
-                <path
-                  d={splinePath}
-                  fill="none"
-                  stroke="url(#splineStroke)"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  filter="url(#neonGlow)"
-                  className="transition-all duration-1000 ease-out"
-                />
-
-                {/* Vertical Phase Drop-Down Laser Lines */}
-                {points.map((p, idx) => {
-                  const s = styleFor(p.window)
-                  return (
-                    <g key={idx}>
-                      <line
-                        x1={p.x}
-                        y1={p.y}
-                        x2={p.x}
-                        y2="210"
-                        stroke={s.color}
-                        strokeWidth="1.2"
-                        strokeDasharray="2 4"
-                        opacity="0.5"
-                      />
-                    </g>
-                  )
-                })}
-
-                {/* Interactive Data Hub Nodes (Points) */}
-                {points.map((p, idx) => {
-                  const s = styleFor(p.window)
-                  const isHovered = hoveredIndex === idx
-
-                  return (
-                    <g
-                      key={idx}
-                      className="cursor-pointer transition-transform duration-300"
-                      onMouseEnter={() => setHoveredIndex(idx)}
-                      onMouseLeave={() => setHoveredIndex(null)}
-                    >
-                      {/* Outer Halo Wave */}
-                      <circle
-                        cx={p.x}
-                        cy={p.y}
-                        r={isHovered ? '16' : '11'}
-                        fill={s.color}
-                        opacity="0.2"
-                        className="animate-ping"
-                      />
-
-                      {/* Main Node Circle */}
-                      <circle
-                        cx={p.x}
-                        cy={p.y}
-                        r={isHovered ? '9' : '7'}
-                        fill="#09090b"
-                        stroke={s.color}
-                        strokeWidth="3"
-                        filter="url(#neonGlow)"
-                        className="transition-all duration-300"
-                      />
-
-                      {/* Center Point */}
-                      <circle cx={p.x} cy={p.y} r="2.5" fill={s.color} />
-
-                      {/* Floating Percentage Tag */}
-                      <g transform={`translate(${p.x}, ${p.y - 16})`}>
-                        <rect
-                          x="-28"
-                          y="-16"
-                          width="56"
-                          height="18"
-                          rx="4"
-                          fill="#09090b"
-                          stroke={s.color}
-                          strokeWidth="1"
-                        />
-                        <text
-                          x="0"
-                          y="-3.5"
-                          fill={s.color}
-                          fontSize="10"
-                          fontWeight="bold"
-                          fontFamily="monospace"
-                          textAnchor="middle"
-                        >
-                          {p.risk}%
-                        </text>
-                      </g>
-                    </g>
-                  )
-                })}
-              </svg>
-            </div>
+                  </g>
+                )
+              })}
+            </svg>
           </div>
-        )}
+        </div>
 
-        {/* View Mode 2: Cyber Radial Gauges */}
-        {viewMode === 'gauge' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 pb-2">
-            {windows.map((w) => {
-              const s = styleFor(w)
-              const Icon = PHASE_ICONS[w.phase] || Activity
-              const radius = 54
-              const circumference = 2 * Math.PI * radius
-              const offset = grown
-                ? circumference - (Math.max(0, Math.min(100, w.risk)) / 100) * circumference
-                : circumference
-
-              return (
-                <div
-                  key={w.phase}
-                  className="relative flex flex-col items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-5 shadow-inner"
-                >
-                  <div className="relative flex items-center justify-center">
-                    <svg className="h-40 w-40 -rotate-90 transform">
-                      {/* Background Dial Track */}
-                      <circle
-                        cx="80"
-                        cy="80"
-                        r={radius}
-                        stroke="#27272a"
-                        strokeWidth="8"
-                        fill="transparent"
-                      />
-                      {/* Animated Progress Dial */}
-                      <circle
-                        cx="80"
-                        cy="80"
-                        r={radius}
-                        stroke={s.color}
-                        strokeWidth="8"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={offset}
-                        strokeLinecap="round"
-                        fill="transparent"
-                        className="transition-all duration-1000 ease-out"
-                      />
-                    </svg>
-
-                    {/* Central Value Readout */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <Icon className={`h-4 w-4 ${s.text} mb-1`} />
-                      <span className={`font-mono text-2xl font-black ${s.text}`}>
-                        {w.risk}%
-                      </span>
-                      <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
-                        Risk
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="mt-3 font-bold text-sm text-zinc-200">{w.title}</p>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">
-                    {w.subtitle}
-                  </p>
-                  <span className={`mt-2 rounded-full border px-3 py-0.5 text-[10px] font-bold ${s.chip}`}>
-                    {s.label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* View Mode 3: Futuristic Neon Pillars (Capsule Matrix) */}
-        {viewMode === 'capsule' && (
-          <div className="grid grid-cols-3 gap-4 sm:gap-8 pt-8 pb-4">
-            {windows.map((w) => {
-              const s = styleFor(w)
-              const heightPercent = grown ? Math.max(w.risk, 6) : 0
-
-              return (
-                <div
-                  key={w.phase}
-                  className="flex flex-col items-center justify-end h-64 relative group"
-                >
-                  <span className={`mb-3 font-mono text-sm font-black ${s.text}`}>
-                    {w.risk}%
-                  </span>
-
-                  {/* Capsule Track */}
-                  <div className="relative h-48 w-14 sm:w-18 rounded-full border border-zinc-700/80 bg-zinc-900/90 p-1 flex flex-col justify-end overflow-hidden shadow-inner">
-                    {/* Interior Segmented Grid Hash Marks */}
-                    <div className="absolute inset-0 flex flex-col justify-between py-3 px-1 pointer-events-none opacity-30">
-                      {[...Array(8)].map((_, i) => (
-                        <div key={i} className="h-0.5 w-full bg-zinc-600 rounded-full" />
-                      ))}
-                    </div>
-
-                    {/* Filled Energy Pillar */}
-                    <div
-                      className={`w-full rounded-full transition-all duration-1000 ease-out ${s.bar} ${s.glow} relative`}
-                      style={{ height: `${heightPercent}%` }}
-                    >
-                      <div className="absolute top-1 inset-x-1 h-2 rounded-full bg-white/40 blur-[1px]" />
-                    </div>
-                  </div>
-
-                  <p className="mt-4 font-bold text-sm text-zinc-200">{w.title}</p>
-                  <span className={`mt-1.5 rounded-full border px-2.5 py-0.5 text-[9px] font-bold ${s.chip}`}>
-                    {s.label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Timeline Trajectory Navigator Footer (Common Across Views) */}
+        {/* Timeline Trajectory Navigator Footer */}
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-800/80 pt-4 text-xs">
           <div className="flex items-center gap-2 text-zinc-400 font-mono text-[11px]">
             <span className="flex items-center gap-1.5 text-zinc-300">
