@@ -12,16 +12,6 @@ import {
   ShieldCheck,
   Siren,
   Zap,
-  Minus,
-  Plus,
-  Dices,
-  Sparkles,
-  Radio,
-  Activity,
-  Flame,
-  CheckCircle2,
-  AlertTriangle,
-  SlidersHorizontal,
 } from 'lucide-react'
 import FaultTimelineChart from '../components/FaultTimelineChart'
 import AiCopilotPanel from '../components/AiCopilotPanel'
@@ -37,6 +27,8 @@ const PREDICTION_STAGES = [
   { at: 4000, text: 'Synthesizing Past, Present & Future risk timeline...' },
 ]
 
+// ranges taken from the training telemetry, so the form cannot push the model
+// far outside the distribution it was actually fitted on
 const DEFAULTS = {
   location: 704,
   severity_type: 1,
@@ -45,137 +37,39 @@ const DEFAULTS = {
   total_log_volume: 51,
 }
 
-const PRESET_SCENARIOS = [
-  {
-    name: 'Critical Outage',
-    icon: Flame,
-    color: 'border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20',
-    data: { location: 704, severity_type: 2, num_events: 5, num_resources: 3, total_log_volume: 450 },
-  },
-  {
-    name: 'Degraded Link',
-    icon: AlertTriangle,
-    color: 'border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20',
-    data: { location: 1008, severity_type: 1, num_events: 3, num_resources: 2, total_log_volume: 120 },
-  },
-  {
-    name: 'Normal Traffic',
-    icon: CheckCircle2,
-    color: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20',
-    data: { location: 534, severity_type: 0, num_events: 1, num_resources: 1, total_log_volume: 25 },
-  },
-]
-
 const SEVERITY_OPTIONS = [
-  {
-    value: 0,
-    label: 'Type 0',
-    status: 'Baseline',
-    desc: 'Normal / Nominal alarm',
-    color: 'emerald',
-    activeBg: 'border-emerald-500/80 bg-emerald-500/15 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]',
-  },
-  {
-    value: 1,
-    label: 'Type 1',
-    status: 'Elevated',
-    desc: 'Warning threshold',
-    color: 'amber',
-    activeBg: 'border-primary bg-primary/15 text-primary shadow-[0_0_15px_rgba(253,230,138,0.25)]',
-  },
-  {
-    value: 2,
-    label: 'Type 2',
-    status: 'Critical',
-    desc: 'Severe outage risk',
-    color: 'red',
-    activeBg: 'border-red-500/80 bg-red-500/15 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.25)]',
-  },
+  { value: 0, label: 'Type 0', hint: 'Baseline alarm class' },
+  { value: 1, label: 'Type 1', hint: 'Elevated alarm class' },
+  { value: 2, label: 'Type 2', hint: 'Highest alarm class' },
 ]
 
-const CyberSlider = ({ Icon, label, hint, min, max, value, onChange, unit, quickPills = [] }) => {
-  const percentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
-
-  const decrement = () => onChange(Math.max(min, value - (max > 50 ? 50 : 1)))
-  const increment = () => onChange(Math.min(max, value + (max > 50 ? 50 : 1)))
-
-  return (
-    <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-3.5 transition-all hover:border-zinc-700">
-      <div className="mb-2.5 flex items-center justify-between">
-        <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-300">
-          <Icon className="h-3.5 w-3.5 text-primary" />
-          {label}
-        </label>
-        <div className="flex items-center gap-2 font-mono">
-          <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 text-sm font-bold text-primary shadow-[0_0_10px_rgba(253,230,138,0.15)]">
-            {value} {unit && <span className="text-[10px] text-zinc-400">{unit}</span>}
-          </span>
-        </div>
-      </div>
-
-      {/* Slider with Tactile - / + Controls */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={decrement}
-          disabled={value <= min}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-dark text-zinc-400 transition hover:border-primary hover:text-primary disabled:opacity-40"
-        >
-          <Minus className="h-3 w-3" />
-        </button>
-
-        <div className="relative flex-1 py-1">
-          <input
-            type="range"
-            min={min}
-            max={max}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            style={{
-              background: `linear-gradient(to right, #fde68a 0%, #fde68a ${percentage}%, #27272a ${percentage}%, #27272a 100%)`,
-            }}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full accent-primary shadow-inner"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={increment}
-          disabled={value >= max}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-dark text-zinc-400 transition hover:border-primary hover:text-primary disabled:opacity-40"
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-      </div>
-
-      {/* Subtitle & Quick Preset Tags */}
-      <div className="mt-2.5 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-        <span>Min: {min}</span>
-        {quickPills.length > 0 ? (
-          <div className="flex items-center gap-1">
-            {quickPills.map((pill) => (
-              <button
-                key={pill}
-                type="button"
-                onClick={() => onChange(pill)}
-                className={`rounded border px-1.5 py-0.5 text-[9px] transition ${
-                  value === pill
-                    ? 'border-primary bg-primary/20 text-primary'
-                    : 'border-zinc-700 bg-dark/60 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                {pill}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <span>{hint}</span>
-        )}
-        <span>Max: {max}</span>
-      </div>
+const Slider = ({ Icon, label, hint, min, max, value, onChange, unit }) => (
+  <div>
+    <div className="mb-2 flex items-baseline justify-between gap-3">
+      <label className="flex items-center gap-2 text-sm font-bold text-zinc-300">
+        <Icon className="h-4 w-4 text-zinc-500" />
+        {label}
+      </label>
+      <span className="font-mono text-lg font-bold text-primary">
+        {value}
+        {unit ? <span className="ml-1 text-xs text-zinc-500">{unit}</span> : null}
+      </span>
     </div>
-  )
-}
+    <input
+      type="range"
+      min={min}
+      max={max}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-700 accent-primary"
+    />
+    <div className="mt-1.5 flex justify-between text-[10px] text-zinc-600">
+      <span>{min}</span>
+      <span className="text-zinc-500">{hint}</span>
+      <span>{max}</span>
+    </div>
+  </div>
+)
 
 const PredictPage = ({ onNavigate }) => {
   const [form, setForm] = useState(DEFAULTS)
@@ -369,232 +263,113 @@ const PredictPage = ({ onNavigate }) => {
           {/* input panel */}
           <div className="lg:col-span-2">
             <div className="sticky top-24 rounded-xl border border-zinc-700 bg-panel p-6 shadow-xl">
-              {/* Header & Live Input Stress Gauge */}
-              <div className="mb-6 border-b border-zinc-700/80 pb-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-mono text-sm font-bold uppercase tracking-wider text-zinc-200">
-                    <ServerCog className="h-4 w-4 text-primary" />
-                    Telemetry Control Deck
-                  </h2>
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-mono text-[10px] font-bold text-primary">
-                    LIVE HUD
-                  </span>
-                </div>
+              <h2 className="mb-6 flex items-center gap-2 border-b border-zinc-700 pb-3 font-bold text-zinc-200">
+                <ServerCog className="h-5 w-5 text-primary" />
+                Telemetry input
+              </h2>
 
-                {/* Real-time Telemetry Stress Level */}
-                {(() => {
-                  const stress = Math.min(
-                    100,
-                    Math.round(
-                      Number(form.severity_type) * 35 +
-                        Number(form.num_events) * 5 +
-                        Number(form.num_resources) * 4 +
-                        Number(form.total_log_volume) / 22,
-                    ),
-                  )
-                  const stressColor =
-                    stress >= 65
-                      ? 'text-red-400 border-red-500/40 bg-red-500/10'
-                      : stress >= 35
-                      ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
-                      : 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
-
-                  return (
-                    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-2.5">
-                      <div className="flex items-center justify-between text-[11px] font-mono">
-                        <span className="flex items-center gap-1.5 text-zinc-400">
-                          <Activity className="h-3.5 w-3.5 text-primary" /> Signal Stress Level:
-                        </span>
-                        <span className={`font-bold ${stressColor.split(' ')[0]}`}>
-                          {stress}% ({stress >= 65 ? 'CRITICAL SURGE' : stress >= 35 ? 'ELEVATED' : 'NOMINAL'})
-                        </span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            stress >= 65
-                              ? 'bg-gradient-to-r from-amber-500 to-red-500 shadow-[0_0_8px_#ef4444]'
-                              : stress >= 35
-                              ? 'bg-gradient-to-r from-emerald-500 to-amber-500'
-                              : 'bg-emerald-500'
-                          }`}
-                          style={{ width: `${stress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              {/* Quick Incident Simulation Presets */}
-              <div className="mb-6">
-                <p className="mb-2 flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-                  <Sparkles className="h-3 w-3 text-primary" /> Quick Test Scenarios:
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {PRESET_SCENARIOS.map((p) => {
-                    const Icon = p.icon
-                    return (
-                      <button
-                        key={p.name}
-                        type="button"
-                        onClick={() => setForm(p.data)}
-                        className={`flex flex-col items-center justify-center rounded-lg border p-2 text-center transition-all ${p.color}`}
-                      >
-                        <Icon className="h-3.5 w-3.5 mb-1" />
-                        <span className="text-[10px] font-bold tracking-tight">{p.name}</span>
-                        <span className="font-mono text-[9px] opacity-75">#{p.data.location}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                {/* 1. Target Node ID Cyber Stepper */}
-                <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-3.5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <label
-                      htmlFor="node-id"
-                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300"
-                    >
-                      <Network className="h-3.5 w-3.5 text-primary" />
-                      Target Node ID
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => set('location')(Math.floor(Math.random() * 1126) + 1)}
-                      className="flex items-center gap-1 rounded border border-zinc-700 bg-dark px-2 py-0.5 text-[10px] font-mono text-zinc-400 transition hover:border-primary hover:text-primary"
-                    >
-                      <Dices className="h-3 w-3" /> Random
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => set('location')(Math.max(1, Number(form.location) - 1))}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-dark text-zinc-300 transition hover:border-primary hover:text-primary active:scale-95"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-
-                    <div className="relative flex-1">
-                      <input
-                        id="node-id"
-                        type="number"
-                        min={1}
-                        max={1126}
-                        value={form.location}
-                        onChange={(e) => set('location')(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-700 bg-dark py-2.5 px-3 text-center font-mono text-xl font-black text-primary outline-none transition focus:border-primary focus:shadow-[0_0_15px_rgba(253,230,138,0.2)]"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => set('location')(Math.min(1126, Number(form.location) + 1))}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-dark text-zinc-300 transition hover:border-primary hover:text-primary active:scale-95"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <p className="mt-2 text-center text-[10px] font-mono text-zinc-500">
-                    Range: Node 1 to 1126 (Telecom Topology Mesh)
+              <div className="space-y-6">
+                <div>
+                  <label
+                    htmlFor="node-id"
+                    className="mb-2 flex items-center gap-2 text-sm font-bold text-zinc-300"
+                  >
+                    <Network className="h-4 w-4 text-zinc-500" />
+                    Target Node ID
+                  </label>
+                  <input
+                    id="node-id"
+                    type="number"
+                    min={1}
+                    max={1126}
+                    value={form.location}
+                    onChange={(e) => set('location')(e.target.value)}
+                    className="w-full rounded-md border border-zinc-600 bg-dark p-3 font-mono text-lg font-bold text-primary outline-none transition focus:border-primary"
+                  />
+                  <p className="mt-1.5 text-[10px] text-zinc-600">
+                    Nodes 1&ndash;1126 appear in the training telemetry.
                   </p>
                 </div>
 
-                {/* 2. Severity Type Cyber Radios */}
                 <div>
-                  <label className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300">
-                    <Siren className="h-3.5 w-3.5 text-primary" />
-                    Hardware Alarm Severity
+                  <label className="mb-2 flex items-center gap-2 text-sm font-bold text-zinc-300">
+                    <Siren className="h-4 w-4 text-zinc-500" />
+                    Severity Type
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {SEVERITY_OPTIONS.map((opt) => {
-                      const isActive = Number(form.severity_type) === opt.value
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => set('severity_type')(opt.value)}
-                          className={`group relative flex flex-col items-center justify-center rounded-xl border p-3 transition-all ${
-                            isActive
-                              ? opt.activeBg
-                              : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                          }`}
-                        >
-                          <span className="font-mono text-xs font-black">{opt.label}</span>
-                          <span className="mt-0.5 text-[10px] font-semibold opacity-90">{opt.status}</span>
-                        </button>
-                      )
-                    })}
+                    {SEVERITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => set('severity_type')(opt.value)}
+                        title={opt.hint}
+                        className={`rounded-md border py-2.5 font-mono text-sm font-bold transition ${
+                          Number(form.severity_type) === opt.value
+                            ? 'border-primary bg-primary/15 text-primary'
+                            : 'border-zinc-600 bg-dark text-zinc-400 hover:border-zinc-500'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* 3. Event Burst Count */}
-                <CyberSlider
+                <Slider
                   Icon={Zap}
                   label="Event Burst Count"
-                  hint="Frequency of event triggers"
+                  hint="events fired"
                   min={1}
                   max={9}
                   value={form.num_events}
                   onChange={set('num_events')}
-                  quickPills={[1, 3, 5, 9]}
                 />
 
-                {/* 4. Resource Count */}
-                <CyberSlider
+                <Slider
                   Icon={Layers}
-                  label="Resource Types"
-                  hint="Equipment modules involved"
+                  label="Resource Count"
+                  hint="resource types"
                   min={1}
                   max={5}
                   value={form.num_resources}
                   onChange={set('num_resources')}
-                  quickPills={[1, 2, 3, 5]}
                 />
 
-                {/* 5. Total Log Volume */}
-                <CyberSlider
+                <Slider
                   Icon={ScrollText}
-                  label="Total Log Volume"
-                  hint="Payload data generated"
+                  label="Log Volume"
+                  hint="log payload"
                   min={1}
                   max={1650}
                   value={form.total_log_volume}
                   onChange={set('total_log_volume')}
                   unit="MB"
-                  quickPills={[25, 120, 450, 1200]}
                 />
               </div>
 
-              {/* Action Button */}
               <button
                 onClick={runPrediction}
                 disabled={loading}
-                className="group relative mt-7 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-amber-300 via-primary to-amber-200 py-4 font-mono font-black text-dark shadow-[0_0_25px_rgba(253,230,138,0.4)] transition-all hover:scale-[1.01] hover:shadow-[0_0_35px_rgba(253,230,138,0.6)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-80"
+                className="mt-8 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-4 font-mono font-bold text-dark shadow-[0_0_20px_rgba(253,230,138,0.35)] transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin text-dark" />
-                    <span>PREDICTING... ({Math.round(progress)}%)</span>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    PREDICTING... ({Math.round(progress)}%)
                   </>
                 ) : (
                   <>
-                    <Cpu className="h-5 w-5 transition-transform group-hover:rotate-12" />
-                    <span>RUN FAULT PREDICTION</span>
+                    <Cpu className="h-4 w-4" />
+                    RUN FAULT PREDICTION
                   </>
                 )}
               </button>
 
               <button
                 onClick={reset}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 py-2 text-xs font-mono text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 py-2.5 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
               >
-                <RotateCcw className="h-3 w-3" />
-                Reset Default Telemetry
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset inputs
               </button>
             </div>
           </div>
