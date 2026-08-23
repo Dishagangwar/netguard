@@ -55,7 +55,7 @@ def evaluate_latest_model():
     
     plt.figure(figsize=(6, 5))
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False)
-    plt.title(f'XGBoost (Thresholds: C2=0.47, C1=0.50) - Acc: {accuracy*100:.2f}%')
+    plt.title(f'XGBoost  - Acc: {accuracy*100:.2f}%')
     plt.xlabel('Predicted Severity')
     plt.ylabel('Actual Severity')
     plt.tight_layout()
