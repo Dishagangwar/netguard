@@ -26,9 +26,9 @@ def evaluate_latest_model():
     y = df['fault_severity']
 
     # 100% Leakage-Free Split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # --- PRO-LEVEL HACK: MULTI-LEVEL THRESHOLDS ---
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42,stratify=y)
+
+    # --- PRO-LEVE MULTI-LEVEL THRESHOLDS ---
     print("[INFO] Applying Logic: 30% for Critical, 50% strict for Warning...")
     y_proba = model.predict_proba(X_test)
     
