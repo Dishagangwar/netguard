@@ -14,6 +14,8 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
+import NocBusinessImpactPanel from './NocBusinessImpactPanel'
+
 
 /**
  * Renders text one character at a time so the copilot reads as though it is
@@ -83,7 +85,7 @@ const CommandLine = ({ command }) => {
   )
 }
 
-const AiCopilotPanel = ({ data, loading, error, node, activeRole = 'L1 Engineer', onRoleChange }) => {
+const AiCopilotPanel = ({ data, loading, error, node, activeRole = 'L1 Engineer', onRoleChange, telemetryData }) => {
   // the root cause types out first; the rest of the report is held back until it finishes
   const { shown, done } = useTypewriter(data?.root_cause || '')
 
@@ -124,7 +126,7 @@ const AiCopilotPanel = ({ data, loading, error, node, activeRole = 'L1 Engineer'
                   isNoc ? 'text-cyan-200' : 'text-amber-200'
                 }`}
               >
-                {isNoc ? 'Executive NOC Commander' : 'L1 Technical Incident Commander'}
+                {isNoc ? 'Executive NOC Commander & ROI Dashboard' : 'L1 Technical Incident Commander'}
               </h3>
               {data?.model && !loading && (
                 <span className="rounded border border-zinc-700 bg-dark/80 px-2 py-0.5 font-mono text-[10px] uppercase text-zinc-400">
@@ -212,10 +214,10 @@ const AiCopilotPanel = ({ data, loading, error, node, activeRole = 'L1 Engineer'
             >
               <span className="flex items-center gap-2">
                 {isNoc ? <Building2 className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
-                Active Perspective: <b>{isNoc ? 'Executive NOC Operations' : 'L1 Network Diagnostics'}</b>
+                Active Perspective: <b>{isNoc ? 'Executive NOC Operations & Financial Impact' : 'L1 Network Diagnostics'}</b>
               </span>
               <span className="text-[11px] text-zinc-400">
-                {isNoc ? 'Business & SLA Focused' : 'CLI & Hardware Focused'}
+                {isNoc ? 'Business & SLA Loss Focused' : 'CLI & Hardware Focused'}
               </span>
             </div>
 
@@ -303,7 +305,7 @@ const AiCopilotPanel = ({ data, loading, error, node, activeRole = 'L1 Engineer'
                               )}
                               {action.command && isNoc && (
                                 <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-mono text-cyan-300">
-                                  <span>Action Item:</span>
+                                  <span>Executive Action:</span>
                                   <span className="font-bold">{action.command}</span>
                                 </div>
                               )}
@@ -350,6 +352,16 @@ const AiCopilotPanel = ({ data, loading, error, node, activeRole = 'L1 Engineer'
                         {data.verification}
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {/* Interactive NOC Manager Business Model & Financial Graphs Section */}
+                {isNoc && (
+                  <div className="mt-8 border-t border-cyan-500/30 pt-6">
+                    <NocBusinessImpactPanel
+                      telemetryData={telemetryData || { location: node }}
+                      initialNode={node}
+                    />
                   </div>
                 )}
 
