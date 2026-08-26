@@ -509,6 +509,14 @@ const PredictPage = ({ onNavigate }) => {
                 node={result.target_node}
                 activeRole={activeRole}
                 onRoleChange={handleRoleChange}
+                telemetryData={{
+                  location: Number(form.location),
+                  severity_type: Number(form.severity_type),
+                  num_events: Number(form.num_events),
+                  num_resources: Number(form.num_resources),
+                  total_log_volume: Number(form.total_log_volume),
+                  present_risk: result.windows?.find((w) => w.phase === 'present')?.risk ?? 84.5
+                }}
               />
             )}
 

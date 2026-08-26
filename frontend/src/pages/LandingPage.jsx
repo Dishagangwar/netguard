@@ -128,6 +128,12 @@ const LandingPage = ({ onNavigate }) => {
               How it works
             </a>
             <button
+              onClick={() => onNavigate('noc-dashboard')}
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-mono font-bold text-cyan-300 transition hover:bg-cyan-500/20"
+            >
+              NOC Business Hub
+            </button>
+            <button
               onClick={() => onNavigate('predict')}
               className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-dark transition hover:bg-amber-100"
             >

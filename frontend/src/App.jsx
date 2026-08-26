@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import LandingPage from './pages/LandingPage'
 import PredictPage from './pages/PredictPage'
+import NocDashboardPage from './pages/NocDashboardPage'
 
-const ROUTES = ['home', 'predict']
+const ROUTES = ['home', 'predict', 'noc-dashboard']
 
 const readHash = () => {
   const raw = window.location.hash.replace(/^#\/?/, '')
@@ -34,6 +35,7 @@ function App() {
   }
 
   if (route === 'predict') return <PredictPage onNavigate={navigate} />
+  if (route === 'noc-dashboard') return <NocDashboardPage onNavigate={navigate} />
   return <LandingPage onNavigate={navigate} />
 }
 
