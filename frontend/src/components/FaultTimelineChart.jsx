@@ -15,6 +15,57 @@ import {
 
 const GRID = [100, 75, 50, 25, 0]
 
+const ALERT_CONFIG = {
+  critical_high: {
+    label: 'Immediate Dispatch',
+    category: 'CRITICAL HIGH',
+    bg: 'bg-red-500/15 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.35)]',
+    badge: 'bg-red-500/20 border-red-500/60 text-red-400',
+    dot: 'bg-red-500 shadow-[0_0_8px_#ef4444]',
+    bar: 'bg-red-500 shadow-[0_0_12px_#ef4444]',
+    border: 'border-red-500/40',
+    headerBg: 'bg-gradient-to-r from-red-950/50 via-panel to-panel shadow-[0_0_40px_rgba(239,68,68,0.22)]',
+    halo: 'bg-red-500',
+    Icon: AlertTriangle,
+  },
+  critical_borderline: {
+    label: 'Review Queue',
+    category: 'CRITICAL BORDERLINE',
+    bg: 'bg-orange-500/15 border-orange-500/50 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.35)]',
+    badge: 'bg-orange-500/20 border-orange-500/60 text-orange-400',
+    dot: 'bg-orange-500 shadow-[0_0_8px_#f97316]',
+    bar: 'bg-orange-500 shadow-[0_0_12px_#f97316]',
+    border: 'border-orange-500/40',
+    headerBg: 'bg-gradient-to-r from-orange-950/50 via-panel to-panel shadow-[0_0_40px_rgba(249,115,22,0.22)]',
+    halo: 'bg-orange-500',
+    Icon: ShieldAlert,
+  },
+  warning: {
+    label: 'Monitor',
+    category: 'WARNING',
+    bg: 'bg-amber-500/15 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.35)]',
+    badge: 'bg-amber-500/20 border-amber-500/60 text-amber-400',
+    dot: 'bg-amber-500 shadow-[0_0_8px_#f59e0b]',
+    bar: 'bg-amber-500 shadow-[0_0_12px_#f59e0b]',
+    border: 'border-amber-500/40',
+    headerBg: 'bg-gradient-to-r from-amber-950/40 via-panel to-panel shadow-[0_0_40px_rgba(245,158,11,0.2)]',
+    halo: 'bg-amber-500',
+    Icon: Activity,
+  },
+  normal: {
+    label: 'No Action',
+    category: 'NOMINAL',
+    bg: 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.35)]',
+    badge: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-400',
+    dot: 'bg-emerald-500 shadow-[0_0_8px_#10b981]',
+    bar: 'bg-emerald-500 shadow-[0_0_12px_#10b981]',
+    border: 'border-emerald-500/40',
+    headerBg: 'bg-gradient-to-r from-emerald-950/40 via-panel to-panel shadow-[0_0_40px_rgba(16,185,129,0.18)]',
+    halo: 'bg-emerald-500',
+    Icon: CheckCircle2,
+  },
+}
+
 const styleFor = (window) => {
   if (!window.has_data) {
     return {
@@ -79,6 +130,13 @@ const FaultTimelineChart = ({ result }) => {
   const { windows, threshold, verdict, fault_count: faultCount, target_node: node } = result
   const anyFault = faultCount > 0
 
+  const alertLevel =
+    result.alert_level ||
+    windows.find((w) => w.phase === 'present')?.alert_level ||
+    (anyFault ? 'critical_high' : 'normal')
+  const alert = ALERT_CONFIG[alertLevel] || ALERT_CONFIG.normal
+  const AlertIcon = alert.Icon
+
   // SVG Coordinates for 3-Point Cyber Spline
   // Box: 600 width x 230 height
   const points = windows.map((w, i) => {
@@ -99,35 +157,21 @@ const FaultTimelineChart = ({ result }) => {
 
   return (
     <div className="space-y-6">
-      {/* 1. Futuristic Cyber HUD Verdict Card */}
+      {/* 1. Futuristic Cyber HUD Verdict Card with Tiered Alert Status */}
       <div
-        className={`relative overflow-hidden rounded-2xl border p-6 backdrop-blur-xl transition-all duration-500 ${
-          anyFault
-            ? 'border-red-500/40 bg-gradient-to-r from-red-950/40 via-panel to-panel shadow-[0_0_40px_rgba(239,68,68,0.18)]'
-            : 'border-emerald-500/40 bg-gradient-to-r from-emerald-950/40 via-panel to-panel shadow-[0_0_40px_rgba(16,185,129,0.18)]'
-        }`}
+        className={`relative overflow-hidden rounded-2xl border p-6 backdrop-blur-xl transition-all duration-500 ${alert.border} ${alert.headerBg}`}
       >
         <div
-          className={`absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl opacity-20 pointer-events-none ${
-            anyFault ? 'bg-red-500' : 'bg-emerald-500'
-          }`}
+          className={`absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl opacity-20 pointer-events-none ${alert.halo}`}
         />
 
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
             <div className="relative mt-1">
               <div
-                className={`flex h-12 w-12 items-center justify-center rounded-xl border ${
-                  anyFault
-                    ? 'border-red-500/50 bg-red-500/20 text-red-400'
-                    : 'border-emerald-500/50 bg-emerald-500/20 text-emerald-400'
-                }`}
+                className={`flex h-12 w-12 items-center justify-center rounded-xl border ${alert.badge}`}
               >
-                {anyFault ? (
-                  <ShieldAlert className="h-6 w-6 animate-pulse" />
-                ) : (
-                  <CheckCircle2 className="h-6 w-6" />
-                )}
+                <AlertIcon className={`h-6 w-6 ${alertLevel === 'critical_high' ? 'animate-pulse' : ''}`} />
               </div>
               <span
                 className={`absolute -right-1 -top-1 flex h-3 w-3 ${
@@ -147,10 +191,23 @@ const FaultTimelineChart = ({ result }) => {
                 <span className="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 font-mono text-[11px] text-primary">
                   ID: #{node}
                 </span>
+                {/* Tiered Alert Badge */}
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider ${alert.bg}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${alert.dot} animate-pulse`} />
+                  {alert.label}
+                </span>
               </div>
               <h2
                 className={`mt-1 text-xl font-extrabold tracking-tight sm:text-2xl ${
-                  anyFault ? 'text-red-400' : 'text-emerald-400'
+                  alertLevel === 'critical_high'
+                    ? 'text-red-400'
+                    : alertLevel === 'critical_borderline'
+                    ? 'text-orange-400'
+                    : alertLevel === 'warning'
+                    ? 'text-amber-400'
+                    : 'text-emerald-400'
                 }`}
               >
                 {anyFault
@@ -163,25 +220,27 @@ const FaultTimelineChart = ({ result }) => {
             </div>
           </div>
 
-          {/* Quick Risk Indicator Pill */}
+          {/* Tiered Action Status Pill */}
           <div className="flex shrink-0 items-center gap-3 self-start md:self-auto rounded-xl border border-zinc-700/80 bg-zinc-900/80 px-4 py-3">
             <div className="text-right">
               <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">
-                Threat Status
+                Tiered Action
               </p>
               <p
-                className={`font-mono text-sm font-bold ${
-                  anyFault ? 'text-red-400' : 'text-emerald-400'
+                className={`font-mono text-sm font-black uppercase ${
+                  alertLevel === 'critical_high'
+                    ? 'text-red-400'
+                    : alertLevel === 'critical_borderline'
+                    ? 'text-orange-400'
+                    : alertLevel === 'warning'
+                    ? 'text-amber-400'
+                    : 'text-emerald-400'
                 }`}
               >
-                {anyFault ? 'ELEVATED RISK' : 'HEALTHY'}
+                {alert.label}
               </p>
             </div>
-            <div
-              className={`h-9 w-1.5 rounded-full ${
-                anyFault ? 'bg-red-500 shadow-[0_0_12px_#ef4444]' : 'bg-emerald-500 shadow-[0_0_12px_#10b981]'
-              }`}
-            />
+            <div className={`h-9 w-1.5 rounded-full ${alert.bar}`} />
           </div>
         </div>
       </div>
@@ -431,11 +490,19 @@ const FaultTimelineChart = ({ result }) => {
           <div className="flex items-center gap-4 text-[11px] font-mono">
             <span className="flex items-center gap-1.5 text-zinc-400">
               <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]" />
-              Fault (&ge;50%)
+              Dispatch (&ge;70%)
+            </span>
+            <span className="flex items-center gap-1.5 text-zinc-400">
+              <span className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_#f97316]" />
+              Review (47-70%)
+            </span>
+            <span className="flex items-center gap-1.5 text-zinc-400">
+              <span className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
+              Monitor (50% W)
             </span>
             <span className="flex items-center gap-1.5 text-zinc-400">
               <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-              Clear (&lt;50%)
+              No Action (&lt;50%)
             </span>
           </div>
         </div>
@@ -454,7 +521,9 @@ const FaultTimelineChart = ({ result }) => {
             >
               <div
                 className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${
-                  w.fault ? 'from-red-600 via-rose-500 to-red-400' : 'from-emerald-600 via-teal-500 to-emerald-400'
+                  w.fault
+                    ? 'from-red-600 via-rose-500 to-red-400'
+                    : 'from-emerald-600 via-teal-500 to-emerald-400'
                 }`}
               />
 
@@ -464,7 +533,16 @@ const FaultTimelineChart = ({ result }) => {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-zinc-100 text-sm">{w.title} Phase</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-zinc-100 text-sm">{w.title} Phase</h4>
+                      {w.phase === 'present' && (
+                        <span
+                          className={`rounded border px-1.5 py-0.5 text-[9px] font-mono font-black uppercase ${alert.badge}`}
+                        >
+                          {alert.label}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-zinc-400 uppercase tracking-wider">
                       {w.subtitle}
                     </p>
@@ -480,10 +558,16 @@ const FaultTimelineChart = ({ result }) => {
               <p className="text-xs leading-relaxed text-zinc-300 font-sans">{w.detail}</p>
 
               <div className="mt-4 flex items-center justify-between border-t border-zinc-800/80 pt-3 text-[10px] font-mono text-zinc-500">
-                <span className="truncate max-w-[170px]">Source: {w.source}</span>
-                <span className={`font-bold ${s.text}`}>
-                  {w.fault ? 'TRIGGERED' : 'NOMINAL'}
-                </span>
+                <span className="truncate max-w-[150px]">Source: {w.source}</span>
+                {w.confidence !== undefined ? (
+                  <span className="font-bold text-primary">
+                    AI CONF: {w.confidence}%
+                  </span>
+                ) : (
+                  <span className={`font-bold ${s.text}`}>
+                    {w.fault ? 'TRIGGERED' : 'NOMINAL'}
+                  </span>
+                )}
               </div>
             </div>
           )

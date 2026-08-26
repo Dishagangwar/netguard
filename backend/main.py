@@ -378,11 +378,14 @@ def predict_timeline(data: NetworkData):
         )
 
     data_dict = data.model_dump() if hasattr(data, "model_dump") else data.dict()
+    present_win = windows[1] if len(windows) > 1 else {}
     return {
         "target_node": data.location,
         "threshold": FAULT_THRESHOLD,
         "verdict": verdict,
         "fault_count": len(faults),
+        "alert_level": present_win.get("alert_level", "normal"),
+        "recommended_action": present_win.get("recommended_action", "no_action"),
         "windows": windows,
         "inputs": data_dict,
     }
