@@ -141,22 +141,30 @@ def _generate_with_gemini_fallback(prompt: str):
 
 def _present_window(data: NetworkData):
     df = pd.DataFrame([data.dict()])
-    
-    # Get raw probabilities
     probs = model.predict_proba(df).tolist()[0]
     
-    # MULTI-LEVEL THRESHOLDS
     CLASS_2_THRESHOLD = 0.47
     CLASS_1_THRESHOLD = 0.50
+    HIGH_CONFIDENCE_CRITICAL_THRESHOLD = 0.70   # New: for immediate dispatch
     
     if probs[2] >= CLASS_2_THRESHOLD:
         severity = 2
+        # Tiered logic for Critical alerts
+        if probs[2] >= HIGH_CONFIDENCE_CRITICAL_THRESHOLD:
+            alert_level = "critical_high"
+            recommended_action = "dispatch_immediate"
+        else:
+            alert_level = "critical_borderline"
+            recommended_action = "queue_for_review"
     elif probs[1] >= CLASS_1_THRESHOLD:
         severity = 1
+        alert_level = "warning"
+        recommended_action = "monitor"
     else:
         severity = 0
+        alert_level = "normal"
+        recommended_action = "no_action"
 
-    # risk = probability the node sits in ANY fault class (1 or 2)
     risk = round(sum(probs[1:]) * 100, 2)
     confidence = round(max(probs) * 100, 2)
 
@@ -170,15 +178,16 @@ def _present_window(data: NetworkData):
         "severity": severity,
         "severity_label": SEVERITY_LABELS.get(severity, "Unknown"),
         "confidence": confidence,
+        "alert_level": alert_level,           # New field
+        "recommended_action": recommended_action,  # New field
         "detail": (
             f"XGBoost classifies node {data.location} as "
             f"{SEVERITY_LABELS.get(severity, 'Unknown')} (class {severity}) "
             f"with {confidence}% confidence. Combined probability of a fault "
-            f"state is {risk}%."
+            f"state is {risk}%. Alert level: {alert_level}, action: {recommended_action}."
         ),
         "source": "XGBoost classifier on the five supplied features",
     }
-
 
 def _past_window(location: int):
     """Recorded fault history for this node in the training telemetry."""
@@ -298,19 +307,31 @@ def predict_severity(data: NetworkData):
     # MULTI-LEVEL THRESHOLDS
     CLASS_2_THRESHOLD = 0.47
     CLASS_1_THRESHOLD = 0.50
+    HIGH_CONFIDENCE_CRITICAL_THRESHOLD = 0.70
     
     if prob[2] >= CLASS_2_THRESHOLD:
         final_severity = 2
+        if prob[2] >= HIGH_CONFIDENCE_CRITICAL_THRESHOLD:
+            alert_level = "critical_high"
+            recommended_action = "dispatch_immediate"
+        else:
+            alert_level = "critical_borderline"
+            recommended_action = "queue_for_review"
     elif prob[1] >= CLASS_1_THRESHOLD:
         final_severity = 1
+        alert_level = "warning"
+        recommended_action = "monitor"
     else:
         final_severity = 0
+        alert_level = "normal"
+        recommended_action = "no_action"
     
     return {
         "fault_severity": final_severity,
-        "confidence": round(max(prob) * 100, 2)
+        "confidence": round(max(prob) * 100, 2),
+        "alert_level": alert_level,
+        "recommended_action": recommended_action
     }
-
 
 @app.post("/predict/timeline")
 def predict_timeline(data: NetworkData):
