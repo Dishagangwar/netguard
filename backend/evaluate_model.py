@@ -25,11 +25,11 @@ def evaluate_latest_model():
     X = df[feature_cols]
     y = df['fault_severity']
 
-    # 100% Leakage-Free Split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # 100% Leakage-Free Stratified Split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     
-    # --- PRO-LEVEL HACK: MULTI-LEVEL THRESHOLDS ---
-    print("[INFO] Applying Logic: 30% for Critical, 50% strict for Warning...")
+    # --- MULTI-LEVEL THRESHOLDS ---
+    print("[INFO] Applying Logic: 47% for Critical, 50% strict for Warning...")
     y_proba = model.predict_proba(X_test)
     
     CLASS_2_THRESHOLD = 0.47
@@ -55,7 +55,7 @@ def evaluate_latest_model():
     
     plt.figure(figsize=(6, 5))
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False)
-    plt.title(f'XGBoost (Thresholds: C2=0.3, C1=0.5) - Acc: {accuracy*100:.2f}%')
+    plt.title(f'XGBoost - Acc: {accuracy*100:.2f}%')
     plt.xlabel('Predicted Severity')
     plt.ylabel('Actual Severity')
     plt.tight_layout()
