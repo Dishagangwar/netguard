@@ -173,8 +173,8 @@ NetGuard AI bridges the communication gap between on-call engineers and business
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/netguard-ai.git
-cd netguard-ai
+git clone https://github.com/Dishagangwar/netguard
+cd netguard
 ```
 
 ---
