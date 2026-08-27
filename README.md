@@ -15,7 +15,7 @@
   <b>Transforming reactive telecom troubleshooting into proactive, multi-horizon fault prevention and role-tailored incident resolution.</b>
 </p>
 
-[Key Features](#-key-features) • [System Architecture](#-system-architecture) • [Machine Learning Pipeline](#-machine-learning--telemetry-pipeline) • [Role-Aware Copilot](#-role-aware-genai-copilot) • [Quick Start](#-quick-start-guide) • [API Documentation](#-api-reference)
+[Key Features](#-key-features) • [System Architecture](#-system-architecture) • [Machine Learning Pipeline](#-machine-learning--telemetry-pipeline) • [NOC Business Hub](#-noc-executive-business-hub) • [Role-Aware Copilot](#-role-aware-genai-copilot) • [Quick Start](#-quick-start-guide) • [API Documentation](#-api-reference)
 
 ---
 
@@ -25,7 +25,7 @@
 
 Telecom networks produce massive volumes of telemetry, alarm bursts, and log streams across thousands of mesh nodes. When an anomaly occurs, network operations teams are often overwhelmed by alarm storms, resulting in extended **Mean Time to Resolution (MTTR)**, severe **SLA violation penalties**, and customer service disruption.
 
-**NetGuard AI** is an end-to-end intelligent network reliability system that couples **gradient-boosted machine learning** with a **3-Horizon Temporal Risk Synthesizer** and **Role-Aware Generative AI Remediation** powered by Google Gemini.
+**NetGuard AI** is an end-to-end intelligent network reliability system that couples **gradient-boosted machine learning** with a **3-Horizon Temporal Risk Synthesizer**, a **NOC Executive Business Hub** that converts raw telemetry bursts into subscriber blast radius, SLA-breach exposure and mitigation ROI, and **Role-Aware Generative AI Remediation** powered by Google Gemini.
 
 ```
                   ┌───────────────────────────────────────────────────────────┐
@@ -45,17 +45,18 @@ Telecom networks produce massive volumes of telemetry, alarm bursts, and log str
                         ┌───────────────────────────────────────────┐
                         │    3-Horizon Temporal Risk Synthesizer    │
                         │    [ PAST ]  ───  [ PRESENT ]  ───  [ FUTURE ]   │
-                        └─────────────────────┬─────────────────────┘
-                                              │ (If Fault Detected)
-                                              ▼
-                        ┌───────────────────────────────────────────┐
-                        │      Gemini Generative Copilot Agent      │
-                        ├─────────────────────┬─────────────────────┤
-                        │ L1 Network Engineer │ NOC Operations Lead │
-                        │  - Bash Runbooks    │  - SLA Breach Risk  │
-                        │  - Port Diagnostics │  - Financial Impact │
-                        │  - Hardware Fixes   │  - Executive Direct.│
-                        └───────────────────────────────────────────┘
+                        │        + Tiered Alert / Action Badge       │
+                        └──────────┬──────────────────────┬─────────┘
+                                   │ (If Fault Detected)  │
+                                   ▼                      ▼
+             ┌───────────────────────────────┐  ┌──────────────────────────────┐
+             │  Gemini Generative Copilot    │  │   NOC Executive Business Hub  │
+             ├───────────────┬───────────────┤  │  - Subscriber Blast Radius    │
+             │ L1 Engineer   │ NOC Manager   │  │  - SLA Breach $ Exposure /hr  │
+             │ - Bash Runbook│ - SLA Risk    │  │  - Unmitigated vs Mitigated   │
+             │ - Port Diags  │ - $ Impact    │  │  - Prevented Loss & AI ROI    │
+             │ - HW Fixes    │ - Exec Direct.│  │  - MTTR Reduction Breakdown   │
+             └───────────────┴───────────────┘  └──────────────────────────────┘
 ```
 
 ---
@@ -68,6 +69,8 @@ Telecom networks produce massive volumes of telemetry, alarm bursts, and log str
   - **Past (Historical Horizon)**: Real-time lookup of historical incident rates and worst recorded fault severities for target nodes.
   - **Present (Live Horizon)**: Real-time XGBoost multi-class probabilistic fault assessment.
   - **Future (Predictive Horizon)**: Weighted forward risk projection combining live telemetry, historical fragility, and current log/event load pressure relative to fleet P90 thresholds.
+- **🔔 Tiered Alert & Action Badges**: Every prediction is classified into a graded response band — `critical_high` → *dispatch immediately*, `critical_borderline` → *queue for review*, `warning` → *monitor*, `normal` → *no action* — driven by class-2 probability confidence bands, not a single flat threshold.
+- **🏢 NOC Executive Business Hub**: A dedicated dashboard (`#/noc-dashboard`) and API that translate a node's telemetry into subscriber blast radius, hourly SLA-breach exposure, unmitigated (4.5h MTTR) vs. NetGuard-mitigated (35m MTTR) loss, prevented capital, mitigation ROI, and a per-tier SLA penalty escalation timeline. Backed by a Gemini-authored executive incident briefing.
 - **🤖 Role-Aware Generative Incident Copilot**:
   - **L1 Network Engineer Mode**: Technical root-cause deduction, automated copy-pasteable Linux/telecom diagnostic and remediation bash commands, prevention tasks, and verification steps.
   - **NOC Manager Mode**: High-level incident briefs, customer blast radius calculations, financial & SLA penalty risk estimations, and executive escalation directives.
@@ -81,25 +84,30 @@ Telecom networks produce massive volumes of telemetry, alarm bursts, and log str
 ```
 netgaurd/
 ├── backend/
-│   ├── main.py                     # FastAPI REST API & Gemini Copilot orchestration
+│   ├── main.py                     # FastAPI REST API, financial model & Gemini Copilot orchestration
 │   ├── train_model.py              # XGBoost training pipeline with balanced sample weights
 │   ├── evaluate_model.py           # Model validation, metrics, & confusion matrix generation
+│   ├── threshold.py               # Threshold sweep / precision-recall tuning for the class bands
 │   ├── process_all_data.py         # ETL pipeline merging telemetry, logs & event types
+│   ├── check_details.py           # Dataset sanity report (ranges, class balance, node counts)
+│   ├── checkmodels.py             # Lists Gemini models available to the configured API key
 │   ├── requirements.txt            # Backend dependencies
 │   ├── xgboost_netguard_v2_*.pkl   # Serialized trained model artifacts
 │   └── confusion_matrix_plot.png   # Model evaluation confusion matrix
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── AiCopilotPanel.jsx      # Role-based GenAI remediation panel
-│   │   │   ├── FaultTimelineChart.jsx  # Past / Present / Future interactive bar visualization
-│   │   │   ├── ParticleField.jsx       # Interactive canvas background animation
-│   │   │   └── TiltCard.jsx            # 3D interactive glassmorphism card
+│   │   │   ├── AiCopilotPanel.jsx         # Role-based GenAI remediation panel + embedded business hub
+│   │   │   ├── NocBusinessImpactPanel.jsx # Financial loss / ROI / MTTR simulation panel (SVG charts)
+│   │   │   ├── FaultTimelineChart.jsx     # Past / Present / Future interactive bar visualization
+│   │   │   ├── ParticleField.jsx          # Interactive canvas background animation
+│   │   │   └── TiltCard.jsx               # 3D interactive glassmorphism card
 │   │   ├── pages/
 │   │   │   ├── LandingPage.jsx         # Product overview & interactive feature walkthrough
-│   │   │   └── PredictPage.jsx         # Live telemetry input console & AI copilot
+│   │   │   ├── PredictPage.jsx         # Live telemetry input console & AI copilot
+│   │   │   └── NocDashboardPage.jsx    # NOC Executive Hub — preset nodes & financial assessment
 │   │   ├── hooks/                      # Custom React hooks (animations, typewriters)
-│   │   ├── App.jsx                     # Route switching & view management
+│   │   ├── App.jsx                     # Hash routing (#/, #/predict, #/noc-dashboard)
 │   │   ├── index.css                   # Tailwind directives & custom CSS variables
 │   │   └── main.jsx                    # React entry point
 │   ├── package.json                    # Frontend dependencies (React 19, Vite, Tailwind)
@@ -132,11 +140,63 @@ The model consumes 5 core telemetry metrics captured at network node checkpoints
 
 ### 2. Multi-Horizon Calculation Mechanics
 
-$$\text{Load Pressure} = \text{clamp}\left( \frac{\frac{\text{num\_events}}{\text{Events}_{P90}} + \frac{\text{total\_log\_volume}}{\text{LogVol}_{P90}}}{2} \times 100 \right)$$
+$$\text{Load Pressure} = \operatorname{clamp}\left( \frac{1}{2}\left( \frac{\text{Events}}{\text{Events}_{P90}} + \frac{\text{LogVol}}{\text{LogVol}_{P90}} \right) \times 100 \right)$$
 
 $$\text{Future Risk} = 0.50 \times \text{Risk}_{\text{Present}} + 0.30 \times \text{Risk}_{\text{Past}} + 0.20 \times \text{Load Pressure}$$
 
+Where $\text{Events}$ is the window's `num_events` and $\text{LogVol}$ is its `total_log_volume`, each divided by the corresponding P90 fleet baseline.
+
 > **Fault Decision Boundary**: Any window where computed risk $\ge 50\%$ triggers an active **FAULT** status and summons the AI Copilot.
+
+### 3. Tiered Alert & Recommended Action
+
+`/predict` and `/predict/timeline` do not just return a class — they map the XGBoost class-probability vector `p` into a graded operational response:
+
+| Condition | `alert_level` | `recommended_action` | Severity |
+| :--- | :--- | :--- | :--- |
+| `p[2] ≥ 0.70` | `critical_high` | `dispatch_immediate` | 2 |
+| `0.47 ≤ p[2] < 0.70` | `critical_borderline` | `queue_for_review` | 2 |
+| `p[1] ≥ 0.50` | `warning` | `monitor` | 1 |
+| otherwise | `normal` | `no_action` | 0 |
+
+The `critical_borderline` band exists so a low-confidence critical prediction is triaged by a human before a truck is rolled, rather than auto-escalated.
+
+### 4. NOC Financial Impact Model
+
+The `/copilot/business-impact` endpoint (and the client-side `NocBusinessImpactPanel`) turn a node's telemetry plus tunable business parameters — `subscribers_per_node`, `hourly_sla_rate`, `truck_roll_cost`, `arpu` — into a financial exposure model. Core relations:
+
+$$\text{Blast Radius} = \text{BaseDensity}(node) \times \left( 1 + 0.2 \cdot \max(1, \text{Resources}) \right) \times \text{SeverityFactor}$$
+
+$$\text{Hourly Loss Rate} = \underbrace{\text{SLARate} \cdot r \cdot (1 + 0.4 \cdot \text{sev})}_{\text{SLA breach}} + \underbrace{\text{Blast Radius} \cdot \tfrac{\text{ARPU}}{720} \cdot 0.15 \cdot r}_{\text{subscriber churn}}, \quad r = \max(0.1, \tfrac{\text{Risk}}{100})$$
+
+$$\text{Unmitigated Loss} = \text{Hourly Loss Rate} \times 4.5\text{h} + 1.5 \cdot \text{TruckRoll}$$
+
+$$\text{Mitigated Loss} = \text{Hourly Loss Rate} \times \tfrac{35}{60}\text{h} + 0.25 \cdot \text{TruckRoll}$$
+
+$$\text{Prevented Loss} = \max(0,\ \text{Unmitigated Loss} - \text{Mitigated Loss}), \qquad \text{ROI}\% = \frac{\text{Prevented Loss}}{\max(500,\ \text{Mitigated Loss})} \times 100$$
+
+`SeverityFactor` is `1.0 / 1.75 / 3.1` for `severity_type` `0 / 1 / 2`; `TruckRoll` is charged only when present risk $\ge 50\%$. The model also emits an **MTTR breakdown** (traditional 270 min: 120 triage + 90 root-cause + 60 dispatch → NetGuard 35 min: 2 + 8 + 25, an ~87% reduction) and a four-tier **SLA penalty escalation timeline** (Platinum 15m → Gold 30m → Silver 1h → Bronze 4h).
+
+> The browser panel (`NocBusinessImpactPanel`) runs the same formula shapes locally for instant what-if feedback with its own default constants; `/copilot/business-impact` is the authoritative server-side computation and is the one wrapped in the Gemini executive briefing.
+
+---
+
+## 🏢 NOC Executive Business Hub
+
+Reachable from the landing page (**NOC Business Hub**) or directly at `#/noc-dashboard`. It is aimed at the person who signs off on incidents and answers to SLA contracts, not the engineer at the console.
+
+```
+   Select Mesh Node ──▶  ┌───────────────────────────────────────────────┐
+   (#704 Metro Core,      │        NOC Business Impact Panel               │
+    #215 Switching Trunk,  ├───────────────┬───────────────┬───────────────┤
+    #48 Edge Gateway,     │ Capital Saved │ Unmitigated   │ MTTR Saved    │
+    #912 5G Backbone)     │  + Net ROI %  │ Exposure 4.5h │  + % faster   │
+                          ├───────────────┴───────────────┴───────────────┤
+                          │ Subscriber Blast Radius │ Loss-vs-Saved bars  │
+                          └───────────────────────────────────────────────┘
+```
+
+The same panel is embedded inside the **NOC Manager** view of the copilot on the prediction page, so a flagged fault flows straight into its financial framing.
 
 ---
 
@@ -156,8 +216,11 @@ NetGuard AI bridges the communication gap between on-call engineers and business
   │ • Immediate Actions: Copyable bash cmds   │     │ • Operational Directives: Team escalation │
   │ • Prevention: Kernel/Hardware config      │     │ • Policy Mitigation: Vendor SLA reviews   │
   │ • Verification: Port ping & buffer checks │     │ • Executive Sign-Off: Clearance criteria  │
+  │                                           │     │ • Embedded: NOC Business Impact Panel     │
   └───────────────────────────────────────────┘     └───────────────────────────────────────────┘
 ```
+
+Both personas are served by the same `POST /copilot/remediation` call with a `role` of `"L1 Engineer"` or `"NOC Manager"`; the NOC path additionally runs the financial model and folds those figures into the Gemini prompt. If Gemini is unreachable, the NOC path returns a fully-formed offline fallback briefing so the dashboard never blanks.
 
 ---
 
@@ -284,7 +347,9 @@ Content-Type: application/json
 ```json
 {
   "fault_severity": 1,
-  "confidence": 88.45
+  "confidence": 88.45,
+  "alert_level": "warning",
+  "recommended_action": "monitor"
 }
 ```
 
@@ -312,6 +377,8 @@ Content-Type: application/json
   "threshold": 50.0,
   "verdict": "Fault indicated in the present and future windows for node 704.",
   "fault_count": 2,
+  "alert_level": "critical_borderline",
+  "recommended_action": "queue_for_review",
   "windows": [
     {
       "phase": "past",
@@ -392,18 +459,86 @@ Content-Type: application/json
 }
 ```
 
+> Send `"role": "NOC Manager"` to get an executive briefing instead (`root_cause` as incident assessment, `immediate_actions` as directive tags rather than bash, plus SLA-mitigation policy items).
+
+---
+
+### 5. NOC Business Impact & Executive Briefing
+```http
+POST /copilot/business-impact
+Content-Type: application/json
+```
+**Request Body:** *(business parameters are optional and default as shown)*
+```json
+{
+  "location": 704,
+  "severity_type": 1,
+  "fault_severity": 1,
+  "present_risk": 84.5,
+  "num_events": 2,
+  "num_resources": 1,
+  "total_log_volume": 51,
+  "subscribers_per_node": 15000,
+  "hourly_sla_rate": 18000.0,
+  "truck_roll_cost": 650.0,
+  "arpu": 45.0
+}
+```
+**Response:**
+```json
+{
+  "financial_metrics": {
+    "blast_radius_subscribers": 41820,
+    "total_hourly_loss_rate": 21877.42,
+    "unmitigated_loss_4_5h": 99423.39,
+    "mitigated_loss_35m": 12924.16,
+    "prevented_loss": 86499.23,
+    "roi_percent": 669.3,
+    "mttr_saved_mins": 235,
+    "mttr_saved_percent": 87.0,
+    "sla_tiers": [
+      { "tier": "Platinum (15m)", "minutes": 15, "penalty": 3803.63, "risk_prob": 80.3 }
+    ],
+    "industry_facts": [
+      { "metric": "Average Telecom Outage Cost", "value": "$14,000 / min", "source": "Gartner Telemetry Benchmark" }
+    ]
+  },
+  "executive_summary": "Node 704 exhibits an 84.5% fault risk threatening ~41,820 subscribers ...",
+  "financial_risk_analysis": "Left unmitigated, a 4.5-hour MTTR results in ~$99,423 of cumulative damage ...",
+  "operational_directives": [
+    { "title": "Issue Tier-2 Operations SLA Notice", "detail": "Reroute enterprise traffic off Node 704." }
+  ],
+  "sla_mitigation": [
+    "Activate dynamic load balancing across secondary fiber loops to avoid a Platinum 15m breach."
+  ],
+  "executive_clearance": "Incident cleared upon zero packet-drop confirmation and telemetry stabilization.",
+  "model": "gemini-2.5-flash"
+}
+```
+*Numbers are illustrative — the exact figures depend on the node id, risk score and the business parameters supplied. If every Gemini model is rate-limited, the endpoint returns the computed `financial_metrics` alongside a deterministic offline briefing (`"model": "NetGuard-Offline-Fallback"`).*
+
+---
+
+### 6. Legacy Quick Copilot
+```http
+POST /copilot
+```
+Original lightweight role-aware endpoint kept for backward compatibility. Takes `{ role, fault_severity, location }` and returns `{ analysis, actions: [{ label, command }] }`. New integrations should use `/copilot/remediation`.
+
 ---
 
 ## 🛠️ Technology Stack
 
 | Domain | Technologies |
 | :--- | :--- |
-| **Frontend Framework** | React 19, Vite, JavaScript (ESNext) |
+| **Frontend Framework** | React 19, Vite, JavaScript (ESNext), hash-based routing |
 | **Styling & UI** | Tailwind CSS, Lucide React Icons, Glassmorphism, Responsive CSS Grid |
 | **Animation & Interactivity** | GSAP (GreenSock), Custom Canvas 2D Particle Engine, CSS 3D Transforms |
+| **Data & HTTP** | Axios |
 | **Backend API** | FastAPI, Uvicorn, Pydantic, Python-dotenv |
 | **Machine Learning** | XGBoost (`XGBClassifier`), Scikit-Learn, Pandas, NumPy, Joblib |
-| **Large Language Models** | Google Gemini Generative AI SDK (`google-generativeai`) |
+| **Business / Financial Model** | Deterministic Python heuristics — blast radius, SLA-breach exposure, MTTR & ROI |
+| **Large Language Models** | Google Gemini Generative AI SDK (`google-generativeai`) with multi-model fallback |
 | **Evaluation & Visualization** | Matplotlib, Seaborn, Confusion Matrix Heatmaps |
 
 ---
