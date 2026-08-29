@@ -1,21 +1,27 @@
 import os
+import warnings
+
+warnings.filterwarnings("ignore")
+
 import glob
 import json
-import warnings
 import joblib
 import pandas as pd
 import numpy as np
-import shap
+try:
+    import shap
+except ImportError:
+    shap = None
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-warnings.filterwarnings("ignore")
-
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+api_key = os.getenv("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -32,11 +38,12 @@ model = None
 explainer = None
 # load latest model 
 try:
-    model_files= glob.glob(os.path.join(BASE_DIR, "xgboost_netguard_v2_*.pkl"))
+    model_files = glob.glob(os.path.join(BASE_DIR, "xgboost_netguard_v2_*.pkl"))
     if len(model_files) > 0:
         latest_model = max(model_files, key=os.path.getctime)
         model = joblib.load(latest_model)
-        explainer = shap.TreeExplainer(model)
+        if shap is not None:
+            explainer = shap.TreeExplainer(model)
         print("INFO: loaded model ->", latest_model)
     else:
         print("warning: no v2 model found")
@@ -145,6 +152,8 @@ def _generate_with_gemini_fallback(prompt: str):
     """
     Iterate through available Gemini candidate models to prevent 429 quota limits.
     """
+    if not os.getenv("GEMINI_API_KEY"):
+        raise ValueError("GEMINI_API_KEY environment variable is not set.")
     last_err = None
     for model_name in GEMINI_CANDIDATE_MODELS:
         try:
@@ -357,77 +366,76 @@ def predict_severity(data: NetworkData):
 @app.post("/explain")
 def explain_prediction(data: NetworkData):
 
-    if model is None or explainer is None:
-        return {"error": "model or SHAP explainer not loaded"}
+    if model is None:
+        return {"error": "model not loaded"}
+    if explainer is None:
+        return {"error": "SHAP explainer not loaded"}
 
-    # Convert input into a dataframe
-    data_dict = data.model_dump() if hasattr(data, "model_dump") else data.dict()
-    df = pd.DataFrame([data_dict])
+    try:
+        # Convert input into a dataframe
+        data_dict = data.model_dump() if hasattr(data, "model_dump") else data.dict()
+        df = pd.DataFrame([data_dict])
 
-    # Get the model prediction
-    predicted_class = int(model.predict(df)[0])
+        # Get the model prediction
+        predicted_class = int(model.predict(df)[0])
 
-    # Get SHAP values
-    shap_result = explainer.shap_values(df)
+        # Get SHAP values
+        shap_result = explainer.shap_values(df)
 
-    # Convert SHAP result to numpy array
-    shap_array = shap_result
+        # Handle different SHAP output shapes
+        if isinstance(shap_result, list):
+            # Multiclass list of ndarrays: [class_0, class_1, class_2]
+            values = shap_result[predicted_class][0]
+        elif hasattr(shap_result, "values"):
+            # SHAP Explanation object
+            arr = np.asarray(shap_result.values)
+            if arr.ndim == 3:
+                values = arr[0, :, predicted_class]
+            elif arr.ndim == 2:
+                values = arr[0]
+            else:
+                values = arr
+        else:
+            arr = np.asarray(shap_result)
+            if arr.ndim == 3:
+                values = arr[0, :, predicted_class]
+            elif arr.ndim == 2:
+                values = arr[0]
+            elif arr.ndim == 1:
+                values = arr
+            else:
+                return {
+                    "error": f"Unexpected SHAP output shape: {arr.shape}"
+                }
 
-    # Newer versions of SHAP can return:
-    # (samples, features, classes)
-    if hasattr(shap_array, "values"):
-        shap_array = shap_array.values
+        feature_names = list(df.columns)
 
-    # Convert to numpy array
-        shap_array = np.asarray(shap_array)
+        explanation = []
 
-    # Handle different SHAP output shapes
-    if shap_array.ndim == 3:
-        # Shape: (samples, features, classes)
-        values = shap_array[0, :, predicted_class]
+        for feature, value, shap_value in zip(
+            feature_names,
+            df.iloc[0].values,
+            values
+        ):
+            explanation.append({
+                "feature": feature,
+                "value": float(value),
+                "shap_value": float(shap_value)
+            })
 
-    elif shap_array.ndim == 2:
-        # Shape: (samples, features)
-        values = shap_array[0]
+        # Strongest contributions first
+        explanation.sort(
+            key=lambda x: abs(x["shap_value"]),
+            reverse=True
+        )
 
-    elif shap_array.ndim == 1:
-        # Shape: (features,)
-        values = shap_array
-
-    elif isinstance(shap_result, list):
-        # Older SHAP multiclass format
-        values = shap_result[predicted_class][0]
-
-    else:
         return {
-            "error": f"Unexpected SHAP output shape: {shap_array.shape}"
+            "prediction": predicted_class,
+            "features": explanation
         }
-
-    feature_names = list(df.columns)
-
-    explanation = []
-
-    for feature, value, shap_value in zip(
-        feature_names,
-        df.iloc[0].values,
-        values
-    ):
-        explanation.append({
-            "feature": feature,
-            "value": float(value),
-            "shap_value": float(shap_value)
-        })
-
-    # Strongest contributions first
-    explanation.sort(
-        key=lambda x: abs(x["shap_value"]),
-        reverse=True
-    )
-
-    return {
-        "prediction": predicted_class,
-        "features": explanation
-    }
+    except Exception as e:
+        print("explain_prediction error:", e)
+        return {"error": str(e)}
 @app.post("/predict/timeline")
 def predict_timeline(data: NetworkData):
     """
@@ -738,7 +746,50 @@ anything disruptive runs last. Give 3 prevention items.
 
     except Exception as e:
         print("remediation error:", type(e).__name__, e)
-        return {"error": "generation_failed", "trace": str(e)}
+        if is_noc:
+            impact_req = BusinessImpactRequest(
+                location=req.location,
+                severity_type=req.severity_type,
+                fault_severity=req.severity,
+                present_risk=req.present_risk,
+                num_events=req.num_events,
+                num_resources=req.num_resources,
+                total_log_volume=req.total_log_volume
+            )
+            fin = _calculate_financial_metrics(impact_req)
+            return {
+                "root_cause": f"Telemetry on Node {req.location} indicates elevated operational risk with present fault probability of {req.present_risk}%. Impact threatens {fin['blast_radius_subscribers']:,} subscriber endpoints with ${fin['total_hourly_loss_rate']:,.2f}/hr exposure.",
+                "impact": f"Risk of SLA penalty breach on high-priority circuits; estimated unmitigated loss of ${fin['unmitigated_loss_4_5h']:,.2f}.",
+                "immediate_actions": [
+                    {"step": "Issue Executive SLA Protection Directive", "detail": f"Direct Tier-2 operations to reroute high-priority enterprise circuits from Node {req.location}.", "command": "EXECUTIVE-DIRECTIVE-SLA-REROUTE"},
+                    {"step": "Authorize Priority Field Dispatch", "detail": "Deploy regional field engineer to verify optical transceiver and line power.", "command": "EXECUTIVE-DIRECTIVE-FIELD-DISPATCH"},
+                    {"step": "Activate Incident War Room", "detail": "Convene cross-functional network and operations leads to track resolution MTTR.", "command": "EXECUTIVE-DIRECTIVE-WAR-ROOM"}
+                ],
+                "prevention": [
+                    "Implement proactive buffer threshold alerting before log burst overflow.",
+                    "Review carrier SLA peering redundancy on primary fiber loops.",
+                    "Audit node telemetry sampling frequency for earlier anomaly detection."
+                ],
+                "verification": "Clear incident upon 100% telemetry metric stabilization and zero packet drop confirmation.",
+                "model": "NetGuard-Offline-Fallback"
+            }
+        else:
+            return {
+                "root_cause": f"Elevated anomaly detected on Node {req.location} (Severity Class {req.severity}) with {req.num_events} burst events and {req.total_log_volume} MB log volume, indicating transceiver or buffer congestion.",
+                "impact": f"Subscribers linked to Node {req.location} may suffer latency degradation, frame drops, or circuit flapping.",
+                "immediate_actions": [
+                    {"step": "Check Node Telemetry & Interface Health", "detail": f"Query transceiver optical power and error counters on Node {req.location}.", "command": f"netguard-cli node diagnostics --node-id {req.location} --check-optics"},
+                    {"step": "Inspect Kernel & Service Log Bursts", "detail": f"Stream recent log buffer entries on Node {req.location} to isolate fault trigger.", "command": f"journalctl -u netguard-agent -n 100 --no-pager | grep -E 'ERROR|WARN|DROP'"},
+                    {"step": "Restart Subsystem Buffer Queue", "detail": f"Soft-reset congested interface buffer queues without dropping active sessions.", "command": f"systemctl reload-or-restart netguard-traffic-queue@{req.location}"}
+                ],
+                "prevention": [
+                    f"Adjust queue depth threshold for Node {req.location} to accommodate event bursts.",
+                    "Update optical firmware to latest stable release.",
+                    "Schedule preventive fiber clean and line attenuation test."
+                ],
+                "verification": f"netguard-cli node ping --node-id {req.location} --count 10 && netguard-cli node status --node-id {req.location}",
+                "model": "NetGuard-Offline-Fallback"
+            }
 
 
 
@@ -772,4 +823,19 @@ def copilot_action(request: CopilotRequest):
     
     except Exception as e:
         print("err:", e)
-        return {"error": "generation_failed", "trace": str(e)}
+        if request.role == "NOC Manager":
+            return {
+                "analysis": f"Node {request.location} is experiencing elevated fault risk (Class {request.fault_severity}). Business impact mitigation and SLA protection required.",
+                "actions": [
+                    {"label": "Enforce SLA Rerouting", "command": f"reroute_sla_traffic --node {request.location}"},
+                    {"label": "Issue Executive Briefing", "command": f"notify_exec_team --node {request.location}"}
+                ]
+            }
+        else:
+            return {
+                "analysis": f"Hardware alert detected on Node {request.location} (Class {request.fault_severity}). Immediate diagnostic and interface checks recommended.",
+                "actions": [
+                    {"label": "Check Interface Status", "command": f"netguard-cli node status --node {request.location}"},
+                    {"label": "Inspect Error Logs", "command": f"journalctl -u netguard -n 50 | grep Node_{request.location}"}
+                ]
+            }

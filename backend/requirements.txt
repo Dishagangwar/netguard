@@ -1,7 +1,10 @@
 fastapi
 uvicorn
 pandas
+numpy
 xgboost
+scikit-learn
 joblib
+shap
 python-dotenv
 google-generativeai
