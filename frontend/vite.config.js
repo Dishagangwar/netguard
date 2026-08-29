@@ -15,6 +15,10 @@ export default defineConfig({
         target: 'http://51.20.142.229',
         changeOrigin: true,
       },
+      '/explain': {
+        target: 'http://51.20.142.229',
+        changeOrigin: true,
+      },
     },
   },
 })

@@ -29,9 +29,11 @@ import AiCopilotPanel from '../components/AiCopilotPanel'
 
 const API =
   import.meta.env.VITE_API_URL ||
-  (typeof window !== 'undefined' && window.location.port === '8000'
-    ? window.location.origin
-    : 'http://127.0.0.1:8000')
+  (typeof window !== 'undefined' && window.location.origin.startsWith('http')
+    ? window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? ''
+      : window.location.origin
+    : '')
 
 
 /* ============================================================
