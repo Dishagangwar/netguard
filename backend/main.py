@@ -4,6 +4,8 @@ import json
 import warnings
 import joblib
 import pandas as pd
+import numpy as np
+import shap
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,13 +29,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 model = None
-
+explainer = None
 # load latest model 
 try:
     model_files= glob.glob(os.path.join(BASE_DIR, "xgboost_netguard_v2_*.pkl"))
     if len(model_files) > 0:
         latest_model = max(model_files, key=os.path.getctime)
         model = joblib.load(latest_model)
+        explainer = shap.TreeExplainer(model)
         print("INFO: loaded model ->", latest_model)
     else:
         print("warning: no v2 model found")
@@ -351,7 +354,80 @@ def predict_severity(data: NetworkData):
         "alert_level": alert_level,
         "recommended_action": recommended_action
     }
+@app.post("/explain")
+def explain_prediction(data: NetworkData):
 
+    if model is None or explainer is None:
+        return {"error": "model or SHAP explainer not loaded"}
+
+    # Convert input into a dataframe
+    data_dict = data.model_dump() if hasattr(data, "model_dump") else data.dict()
+    df = pd.DataFrame([data_dict])
+
+    # Get the model prediction
+    predicted_class = int(model.predict(df)[0])
+
+    # Get SHAP values
+    shap_result = explainer.shap_values(df)
+
+    # Convert SHAP result to numpy array
+    shap_array = shap_result
+
+    # Newer versions of SHAP can return:
+    # (samples, features, classes)
+    if hasattr(shap_array, "values"):
+        shap_array = shap_array.values
+
+    # Convert to numpy array
+        shap_array = np.asarray(shap_array)
+
+    # Handle different SHAP output shapes
+    if shap_array.ndim == 3:
+        # Shape: (samples, features, classes)
+        values = shap_array[0, :, predicted_class]
+
+    elif shap_array.ndim == 2:
+        # Shape: (samples, features)
+        values = shap_array[0]
+
+    elif shap_array.ndim == 1:
+        # Shape: (features,)
+        values = shap_array
+
+    elif isinstance(shap_result, list):
+        # Older SHAP multiclass format
+        values = shap_result[predicted_class][0]
+
+    else:
+        return {
+            "error": f"Unexpected SHAP output shape: {shap_array.shape}"
+        }
+
+    feature_names = list(df.columns)
+
+    explanation = []
+
+    for feature, value, shap_value in zip(
+        feature_names,
+        df.iloc[0].values,
+        values
+    ):
+        explanation.append({
+            "feature": feature,
+            "value": float(value),
+            "shap_value": float(shap_value)
+        })
+
+    # Strongest contributions first
+    explanation.sort(
+        key=lambda x: abs(x["shap_value"]),
+        reverse=True
+    )
+
+    return {
+        "prediction": predicted_class,
+        "features": explanation
+    }
 @app.post("/predict/timeline")
 def predict_timeline(data: NetworkData):
     """
