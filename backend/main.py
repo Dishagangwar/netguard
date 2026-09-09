@@ -363,6 +363,7 @@ def predict_severity(data: NetworkData):
         "alert_level": alert_level,
         "recommended_action": recommended_action
     }
+<<<<<<< HEAD
 def _generate_prediction_insight(prediction, features):
     positive_features = [
         f for f in features
@@ -420,6 +421,8 @@ def _generate_prediction_insight(prediction, features):
             f"{reducing_factor}."
         )
     }
+=======
+>>>>>>> 17f8cede0e9de5d46f7cafcf1e8e4f1be1913421
 @app.post("/explain")
 def explain_prediction(data: NetworkData):
     if model is None:
@@ -457,6 +460,7 @@ def explain_prediction(data: NetworkData):
             for f, val in zip(feature_names, values)
         ]
         explanation.sort(key=lambda x: abs(x["shap_value"]), reverse=True)
+<<<<<<< HEAD
         insight = _generate_prediction_insight(
     predicted_class,
     explanation
@@ -466,6 +470,11 @@ def explain_prediction(data: NetworkData):
             "prediction": predicted_class,
             "features": explanation,
             "insight": insight,
+=======
+        return {
+            "prediction": predicted_class,
+            "features": explanation,
+>>>>>>> 17f8cede0e9de5d46f7cafcf1e8e4f1be1913421
             "source": "Python shap.TreeExplainer on XGBoost model"
         }
     except Exception as e:
