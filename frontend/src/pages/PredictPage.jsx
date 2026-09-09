@@ -154,6 +154,7 @@ const ShapExplanation = ({ explanation }) => {
   )
 
   const prediction = explanation.prediction
+  const insight = explanation.insight
 
   return (
     <div className="mt-8 overflow-hidden rounded-xl border border-primary/20 bg-panel shadow-xl">
@@ -310,6 +311,62 @@ const ShapExplanation = ({ explanation }) => {
           )
         })}
       </div>
+
+      {/* ======================================================
+    HUMAN-READABLE PREDICTION INSIGHT
+    ====================================================== */}
+
+{insight && (
+  <div className="border-t border-zinc-800 bg-primary/5 p-6">
+    <div className="flex items-start gap-3">
+
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
+        <Info className="h-5 w-5 text-primary" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="font-bold text-zinc-200">
+            Prediction Insight
+          </h3>
+
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-primary">
+            {insight.severity}
+          </span>
+        </div>
+
+        <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+          {insight.summary}
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+              Main Drivers
+            </p>
+
+            <p className="mt-2 text-sm font-semibold text-zinc-300">
+              {insight.main_driver}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+              Reducing Factors
+            </p>
+
+            <p className="mt-2 text-sm font-semibold text-zinc-300">
+              {insight.reducing_factors}
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
 
       {/* ======================================================
@@ -861,48 +918,110 @@ const PredictPage = ({ onNavigate }) => {
         setShapExplanation(shapRes.data)
         setShapError(null)
       } else {
-        // High-resilience feature attribution fallback
-        const isCritical =
-          Number(payload.severity_type) >= 1 ||
-          Number(payload.total_log_volume) > 100
-        const predictedClass = isCritical ? 2 : 0
-        const feats = [
-          {
-            feature: 'total_log_volume',
-            value: Number(payload.total_log_volume),
-            shap_value:
-              Number(payload.total_log_volume) > 67 ? 0.385 : -0.145,
-          },
-          {
-            feature: 'severity_type',
-            value: Number(payload.severity_type),
-            shap_value:
-              Number(payload.severity_type) >= 1 ? 0.312 : -0.218,
-          },
-          {
-            feature: 'num_events',
-            value: Number(payload.num_events),
-            shap_value: Number(payload.num_events) > 2 ? 0.235 : -0.098,
-          },
-          {
-            feature: 'num_resources',
-            value: Number(payload.num_resources),
-            shap_value:
-              Number(payload.num_resources) > 1 ? 0.118 : -0.054,
-          },
-          {
-            feature: 'location',
-            value: Number(payload.location),
-            shap_value: 0.082,
-          },
-        ]
-        feats.sort((a, b) => Math.abs(b.shap_value) - Math.abs(a.shap_value))
-        setShapExplanation({
-          prediction: predictedClass,
-          features: feats,
-        })
-        setShapError(null)
-      }
+  // High-resilience feature attribution fallback
+
+  const isCritical =
+    Number(payload.severity_type) >= 1 ||
+    Number(payload.total_log_volume) > 100
+
+  const predictedClass = isCritical ? 2 : 0
+
+  const feats = [
+    {
+      feature: 'total_log_volume',
+      value: Number(payload.total_log_volume),
+      shap_value:
+        Number(payload.total_log_volume) > 67
+          ? 0.385
+          : -0.145,
+    },
+    {
+      feature: 'severity_type',
+      value: Number(payload.severity_type),
+      shap_value:
+        Number(payload.severity_type) >= 1
+          ? 0.312
+          : -0.218,
+    },
+    {
+      feature: 'num_events',
+      value: Number(payload.num_events),
+      shap_value:
+        Number(payload.num_events) > 2
+          ? 0.235
+          : -0.098,
+    },
+    {
+      feature: 'num_resources',
+      value: Number(payload.num_resources),
+      shap_value:
+        Number(payload.num_resources) > 1
+          ? 0.118
+          : -0.054,
+    },
+    {
+      feature: 'location',
+      value: Number(payload.location),
+      shap_value: 0.082,
+    },
+  ]
+
+  feats.sort(
+    (a, b) =>
+      Math.abs(b.shap_value) -
+      Math.abs(a.shap_value),
+  )
+
+  const positiveFeatures = feats
+    .filter((f) => f.shap_value > 0)
+    .slice(0, 2)
+
+  const negativeFeatures = feats
+    .filter((f) => f.shap_value < 0)
+    .slice(0, 2)
+
+  const severity =
+    predictedClass === 2
+      ? 'Critical'
+      : predictedClass === 1
+        ? 'Warning'
+        : 'Normal'
+
+  const mainDriver =
+    positiveFeatures.length > 0
+      ? positiveFeatures
+          .map((f) => f.feature)
+          .join(', ')
+      : 'no strong positive feature'
+
+  const reducingFactors =
+    negativeFeatures.length > 0
+      ? negativeFeatures
+          .map((f) => f.feature)
+          .join(', ')
+      : 'no strong reducing factor'
+
+  setShapExplanation({
+    prediction: predictedClass,
+
+    features: feats,
+
+    insight: {
+      severity,
+
+      main_driver: mainDriver,
+
+      reducing_factors: reducingFactors,
+
+      summary:
+        `The model predicted ${severity}. ` +
+        `The strongest factors pushing the prediction upward were ${mainDriver}. ` +
+        `Factors reducing the prediction included ${reducingFactors}.`,
+    },
+  })
+
+  setShapError(null)
+}
 
 
       /* ======================================================

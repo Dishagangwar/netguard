@@ -363,6 +363,66 @@ def predict_severity(data: NetworkData):
         "alert_level": alert_level,
         "recommended_action": recommended_action
     }
+<<<<<<< HEAD
+def _generate_prediction_insight(prediction, features):
+    positive_features = [
+        f for f in features
+        if f["shap_value"] > 0
+    ]
+
+    negative_features = [
+        f for f in features
+        if f["shap_value"] < 0
+    ]
+
+    positive_features.sort(
+        key=lambda x: abs(x["shap_value"]),
+        reverse=True
+    )
+
+    negative_features.sort(
+        key=lambda x: abs(x["shap_value"]),
+        reverse=True
+    )
+
+    top_positive = positive_features[:2]
+    top_negative = negative_features[:2]
+
+    if prediction == 2:
+        severity = "Critical"
+    elif prediction == 1:
+        severity = "Warning"
+    else:
+        severity = "Normal"
+
+    if top_positive:
+        main_driver = ", ".join(
+            f["feature"] for f in top_positive
+        )
+    else:
+        main_driver = "no strong positive feature"
+
+    if top_negative:
+        reducing_factor = ", ".join(
+            f["feature"] for f in top_negative
+        )
+    else:
+        reducing_factor = "no strong reducing factor"
+
+    return {
+        "severity": severity,
+        "main_driver": main_driver,
+        "reducing_factors": reducing_factor,
+        "summary": (
+            f"The model predicted {severity}. "
+            f"The strongest factors pushing the prediction "
+            f"upward were {main_driver}. "
+            f"Factors reducing the prediction included "
+            f"{reducing_factor}."
+        )
+    }
+=======
+>>>>>>> 17f8cede0e9de5d46f7cafcf1e8e4f1be1913421
 @app.post("/explain")
 def explain_prediction(data: NetworkData):
     if model is None:
@@ -400,9 +460,21 @@ def explain_prediction(data: NetworkData):
             for f, val in zip(feature_names, values)
         ]
         explanation.sort(key=lambda x: abs(x["shap_value"]), reverse=True)
+<<<<<<< HEAD
+        insight = _generate_prediction_insight(
+    predicted_class,
+    explanation
+)
+
         return {
             "prediction": predicted_class,
             "features": explanation,
+            "insight": insight,
+=======
+        return {
+            "prediction": predicted_class,
+            "features": explanation,
+>>>>>>> 17f8cede0e9de5d46f7cafcf1e8e4f1be1913421
             "source": "Python shap.TreeExplainer on XGBoost model"
         }
     except Exception as e:
