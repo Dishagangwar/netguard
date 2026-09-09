@@ -1,0 +1,14 @@
+# Python & ML
+__pycache__/
+venv/
+.venv/
+.env
+
+# Node/React
+node_modules/
+dist/
+
+# Other
+.DS_Store
+.claude/
+.vscode/
